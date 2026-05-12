@@ -1,28 +1,30 @@
 # M141 – Datenbankserver in Betrieb nehmen
 
-Dieses Repository enthält Lernunterlagen und Lösungen zum Modul **M141 – Datenbankserver in Betrieb nehmen** der TBZ (Technische Berufsschule Zürich).
+Lernunterlagen und beantwortete Checkpoints zum Modul **M141** der TBZ (Technische Berufsschule Zürich).
 
 ## Inhalte
 
-| Datei | Beschreibung |
-|-------|-------------|
-| `start` | Checkpoint 1. Tag – Einführung, DB-Engines, XAMPP, Workbench (beantwortet) |
+| Datei | Thema |
+|-------|-------|
+| [Tag1.md](Tag1.md) | Checkpoint 1. Tag – Einführung, DB-Engines, XAMPP, Workbench |
 
 ## Themen
 
 - Grundlagen relationaler und nicht-relationaler Datenbanken
 - Client/Server-Architektur
-- MySQL / MariaDB Installation und Betrieb mit XAMPP
-- MySQL Workbench und phpMyAdmin als DB-Clients
-- Starten, Stoppen und Überwachen des DB-Servers
+- MySQL / MariaDB mit XAMPP installieren und betreiben
+- DB-Server starten, stoppen und überwachen
 - NoSQL-Datenbanktypen und DBaaS
 
 ## Tools
 
-- **XAMPP** – lokale Entwicklungsumgebung mit Apache und MySQL
-- **MySQL Workbench** – grafischer DB-Client
-- **phpMyAdmin** – webbasierter DB-Client
-- **mysql** – Kommandozeilen-Client
+| Tool | Art | Beschreibung |
+|------|-----|-------------|
+| XAMPP | Umgebung | Lokale Entwicklungsumgebung mit Apache und MySQL |
+| MySQL Workbench | GUI-Client | Grafischer DB-Client |
+| phpMyAdmin | Web-Client | Browserbasierter DB-Client |
+| mysql | CLI-Client | Kommandozeilen-Client |
+| mysqld | Server | MySQL-Serverprozess |
 
 ## Autor
 
