@@ -1,31 +1,50 @@
-# M141 – Datenbankserver in Betrieb nehmen
+# M141 – Datenbanksystem in Betrieb nehmen
 
-Lernunterlagen und beantwortete Checkpoints zum Modul **M141** der TBZ (Technische Berufsschule Zürich).
+Lernportfolio von Noah Bachmann – TBZ, Lehrjahr 2025/2026
 
-## Inhalte
+> Installiert und konfiguriert ein Datenbanksystem, führt eine Dateninitialisierung durch, stellt die Funktionalität sicher und führt die Übergabe in den produktiven Betrieb durch.
 
-| Datei | Thema |
-|-------|-------|
-| [Tag1.md](Tag1.md) | Checkpoint 1. Tag – Einführung, DB-Engines, XAMPP, Workbench |
+---
 
-## Themen
+## Lektionenplan
 
-- Grundlagen relationaler und nicht-relationaler Datenbanken
-- Client/Server-Architektur
-- MySQL / MariaDB mit XAMPP installieren und betreiben
-- DB-Server starten, stoppen und überwachen
-- NoSQL-Datenbanktypen und DBaaS
+| Tag | Thema | Inhalt | Bewertung |
+|:---:|-------|--------|:---------:|
+| 1 | [Intro & Installation](Tag1.md) | Einführung, RDBMS-Übersicht, MariaDB, Workbench, phpMyAdmin, XAMPP | |
+| 2 | Konfiguration & Datenimport | my.ini, Schema/Dump/CSV/JSON importieren | |
+| 3 | Tabellentypen & Transaktionen | MyISAM, InnoDB, Locking, Transaktionskonzept | |
+| 4 | Datenbanksicherheit | Authentifizierung, Netzwerkzugang | |
+| 5 | Zugriffssystem | Autorisierung, DCL | **LB1 (20%)** Tag 1–4 |
+| 6 | Server Administration | Admin-Tools, Logging, Optimierungen | |
+| 7 | Testen | Testing, Ablauf & Performance | **LB2 (30%)** Tag 1–7 |
+| 8 | Praxisarbeit MS A | Lokale DBMS (MySQL): DDL, DML, DCL | **LB3 (50%)** |
+| 9 | Praxisarbeit MS B | Lokale DBMS testen → Migration auf Cloud-DBMS (z.B. AWS) | **LB3** |
+| 10 | Praxisarbeit MS C/D & Demo | Cloud-DBMS testen, optimieren, Protokollierung, Demo | **LB3** |
+
+---
+
+## Bewertungen
+
+| | Gewichtung | Umfang |
+|-|:----------:|--------|
+| LB1 | 20% | Tag 1–4: Zugriffssystem & Authentifizierung |
+| LB2 | 30% | Tag 1–7: Server Administration & Testing |
+| LB3 | 50% | Tag 8–10: Praxisarbeit inkl. Cloud-Migration |
+
+---
 
 ## Tools
 
 | Tool | Art | Beschreibung |
 |------|-----|-------------|
-| XAMPP | Umgebung | Lokale Entwicklungsumgebung mit Apache und MySQL |
-| MySQL Workbench | GUI-Client | Grafischer DB-Client |
+| XAMPP | Umgebung | Lokale Entwicklungsumgebung mit Apache und MySQL/MariaDB |
+| MySQL Workbench | GUI-Client | Grafischer DB-Client und Admin-Tool |
 | phpMyAdmin | Web-Client | Browserbasierter DB-Client |
 | mysql | CLI-Client | Kommandozeilen-Client |
-| mysqld | Server | MySQL-Serverprozess |
+| mysqld | Server | MySQL/MariaDB-Serverprozess |
 
-## Autor
+---
 
-Noah Bachmann – TBZ, Lehrjahr 2025/2026
+## Offizielles Modul-Repo
+
+[gitlab.com/ch-tbz-it/Stud/m141/m141](https://gitlab.com/ch-tbz-it/Stud/m141/m141)
