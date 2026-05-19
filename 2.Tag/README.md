@@ -1,4 +1,10 @@
-# M141 – Tag 2: Konfiguration & Datenimport
+# Tag 2 – Konfiguration & Datenimport
+
+Themen: my.ini, Kollation, SQL-Befehlsgruppen, Datenbank „Firma"
+
+[← Zurück zur Übersicht](../README.md)
+
+SQL-Dateien in diesem Ordner: [kollation.sql](kollation.sql) · [Firma_DDL.sql](Firma_DDL.sql) · [Abteilungen.txt](Abteilungen.txt)
 
 ---
 
@@ -59,7 +65,7 @@ collation-server     = utf8mb4_unicode_ci
 
 ## 2. Kollation / Zeichenkodierung
 
-SQL-Script: [Tag2/kollation.sql](Tag2/kollation.sql)
+SQL-Script: [kollation.sql](kollation.sql)
 
 ### Zeichenkodierungen im Überblick
 
@@ -126,7 +132,7 @@ ALTER TABLE tbl_mitarbeiter
 
 ## 4. Datenbank „Firma" erstellen
 
-SQL-Scripts: [Tag2/Firma_DDL.sql](Tag2/Firma_DDL.sql)
+SQL-Scripts: [Firma_DDL.sql](Firma_DDL.sql)
 
 ### 4.1 Datenbank und Tabellen erstellen
 
@@ -138,12 +144,11 @@ CREATE DATABASE IF NOT EXISTS firma
 USE firma;
 ```
 
-Vollständige DDL inkl. aller Tabellen: siehe [Tag2/Firma_DDL.sql](Tag2/Firma_DDL.sql)
+Vollständige DDL inkl. aller Tabellen: siehe [Firma_DDL.sql](Firma_DDL.sql)
 
 ### 4.2 CSV importieren (Abteilungen.txt)
 
 ```sql
--- Datei: Tag2/Abteilungen.txt
 LOAD DATA LOCAL INFILE 'Abteilungen.txt'
 INTO TABLE tbl_abteilung
 FIELDS TERMINATED BY ';'
@@ -157,9 +162,8 @@ Oder via phpMyAdmin: Import → CSV → Trennzeichen `;` → Zeichensatz `utf-8`
 ### 4.3 SQL importieren (tbl_plz_ort.sql, tbl_mitarbeiter.sql)
 
 ```bash
-# Über Kommandozeile (mysql.exe)
-mysql -u root -p firma < Tag2/tbl_plz_ort.sql
-mysql -u root -p firma < Tag2/tbl_mitarbeiter.sql
+mysql -u root -p firma < tbl_plz_ort.sql
+mysql -u root -p firma < tbl_mitarbeiter.sql
 ```
 
 ### 4.4 Index löschen & Tabellentyp ändern (MyISAM → InnoDB)
@@ -183,7 +187,6 @@ SHOW TABLE STATUS FROM firma;
 ### 4.5 Eigene Tabelle erstellen
 
 ```sql
--- Projekt-Tabelle als eigene Erweiterung
 CREATE TABLE tbl_projekt (
     Proj_ID       INT            NOT NULL AUTO_INCREMENT,
     Bezeichnung   VARCHAR(100)   NOT NULL,
@@ -193,7 +196,7 @@ CREATE TABLE tbl_projekt (
     PRIMARY KEY (Proj_ID)
 ) ENGINE = InnoDB;
 
--- Zuweisung Mitarbeiter ↔ Projekt
+-- Zuweisung Mitarbeiter ↔ Projekt (N:M)
 CREATE TABLE tbl_ma_proj (
     MA_ID    INT         NOT NULL,
     Proj_ID  INT         NOT NULL,
@@ -202,31 +205,23 @@ CREATE TABLE tbl_ma_proj (
     FOREIGN KEY (MA_ID)   REFERENCES tbl_mitarbeiter(MA_ID),
     FOREIGN KEY (Proj_ID) REFERENCES tbl_projekt(Proj_ID)
 ) ENGINE = InnoDB;
-```
 
-Beispieldaten einfügen:
-```sql
 INSERT INTO tbl_projekt VALUES
-(1, 'ERP-Migration',   '2024-01-01', '2024-06-30', 150000.00),
-(2, 'Website Relaunch','2024-03-01', '2024-04-30',  20000.00);
+(1, 'ERP-Migration',    '2024-01-01', '2024-06-30', 150000.00),
+(2, 'Website Relaunch', '2024-03-01', '2024-04-30',  20000.00);
 ```
 
 ### 4.6 Dump erstellen mit mysqldump
 
 ```bash
 # Vollständiger Dump (Struktur + Daten)
-mysqldump -u root -p firma > Tag2/firma_dump.sql
+mysqldump -u root -p firma > firma_dump.sql
 
 # Nur Struktur (kein INSERT)
-mysqldump -u root -p --no-data firma > Tag2/firma_schema.sql
+mysqldump -u root -p --no-data firma > firma_schema.sql
 
-# Einzelne Tabelle
-mysqldump -u root -p firma tbl_mitarbeiter > Tag2/firma_mitarbeiter.sql
-```
-
-Dump wieder einspielen:
-```bash
-mysql -u root -p firma < Tag2/firma_dump.sql
+# Dump wieder einspielen
+mysql -u root -p firma < firma_dump.sql
 ```
 
 ---
@@ -246,43 +241,34 @@ mysql -u root -p firma < Tag2/firma_dump.sql
 
 ---
 
-### Welche Informationen erhalten Sie beim Befehl `status;` im MySQL-Konsolenfenster?
+### Welche Informationen erhalten Sie beim Befehl `status;`?
 
 - [x] Version des Konsolenprogramms
 - [x] Betriebszeit des Servers
 - [x] Version des Servers
 - [ ] Betriebszeit des DB-Klienten mysql
 
-Beispielausgabe von `status;`:
+Beispielausgabe:
 ```
 mysql  Ver 15.1 Distrib 10.4.28-MariaDB, for Win64 (AMD64)
 
-Connection id:          8
-Current database:
-Current user:           root@localhost
-SSL:                    Not in use
-Using delimiter:        ;
-Server version:         10.4.28-MariaDB mariadb.org binary distribution
-Protocol version:       10
-Connection:             localhost via TCP/IP
-Server characterset:    utf8mb4
-Db     characterset:    utf8mb4
-Client characterset:    utf8mb4
-Conn.  characterset:    utf8mb4
-TCP port:               3306
-Uptime:                 1 hour 23 min 45 sec
+Connection id:     8
+Current user:      root@localhost
+Server version:    10.4.28-MariaDB
+TCP port:          3306
+Uptime:            1 hour 23 min 45 sec
 ```
 
 ---
 
-### Welche Daten befinden sich im Verzeichnis `datadir` (z. B. `C:\xampp\mysql\data`)?
+### Welche Daten befinden sich im Verzeichnis `datadir`?
 
 - [x] Protokoll-Dateien (Log-Files)
 - [x] Fehlerprotokolle
 - [ ] die ausführbaren MySQL-Programme, z.B. mysql.exe
 - [x] Datenbanken
 
-> Die ausführbaren Programme liegen im `bin`-Verzeichnis (z.B. `C:\xampp\mysql\bin`).
+> Ausführbare Programme liegen im `bin`-Verzeichnis (z.B. `C:\xampp\mysql\bin`).
 
 ---
 
@@ -290,18 +276,18 @@ Uptime:                 1 hour 23 min 45 sec
 
 - [x] mit dem Dienst-Manager von Windows
 - [ ] mit dem GUI-Tool Administrator
-- [x] durch Eingabe des Befehls `status` im CMD-Fenster (nach Login mit mysql.exe)
+- [x] durch Eingabe des Befehls `status` im CMD-Fenster (nach Login)
 - [x] mit dem Task-Manager von Windows (Prozess `mysqld.exe`)
 
 ---
 
 ### Wie testen Sie die Installation des DB-Servers?
 
-1. Prüfen ob `mysqld.exe` im Task-Manager sichtbar ist
-2. Mit dem mysql-Client verbinden: `mysql -u root -p`
-3. Befehl `SHOW DATABASES;` ausführen → gibt Systemdatenbanken zurück
-4. phpMyAdmin aufrufen: `http://localhost/phpmyadmin`
-5. In MySQL Workbench eine neue Verbindung zu `localhost:3306` herstellen
+1. `mysqld.exe` im Task-Manager suchen
+2. Mit mysql-Client verbinden: `mysql -u root -p`
+3. `SHOW DATABASES;` ausführen → gibt Systemdatenbanken zurück
+4. phpMyAdmin unter `http://localhost/phpmyadmin` aufrufen
+5. In MySQL Workbench eine Verbindung zu `localhost:3306` herstellen
 
 ---
 
@@ -315,31 +301,18 @@ status;
 -- Option 2: per SQL
 SHOW STATUS LIKE 'Uptime';
 -- → gibt Sekunden zurück
-
--- Option 3: Dienst-Manager
--- Spalte "Startzeit" beim MySQL-Dienst ablesen
 ```
 
 ---
 
-### Wozu verwenden Sie das Programm `mysql.exe`? Wie starten Sie es?
+### Wozu verwenden Sie `mysql.exe`? Wie starten Sie es?
 
-`mysql.exe` ist der interaktive Kommandozeilen-**Client** für MariaDB/MySQL. Damit können Sie:
-- SQL-Befehle direkt eingeben
-- Skript-Dateien ausführen (`mysql -u root -p < script.sql`)
-- Datenbanken verwalten
+`mysql.exe` ist der interaktive Kommandozeilen-**Client**. Damit können Sie SQL-Befehle eingeben, Skripte ausführen und Datenbanken verwalten.
 
-**Starten:**
 ```cmd
-mysql -u root -p
-```
-Optionen:
-```
--u root        Benutzername
--p             Passwort abfragen
--h localhost   Host (Standard: localhost)
--P 3306        Port (Standard: 3306)
--D firma       Direkt eine Datenbank öffnen
+mysql -u root -p          ← Verbindung als root
+mysql -u root -p firma    ← direkt in DB "firma"
+mysql -u root -p firma < script.sql   ← Skript ausführen
 ```
 
 ---
@@ -348,9 +321,9 @@ Optionen:
 
 | Information | Beispielwert | Bedeutung |
 |-------------|-------------|-----------|
-| `Server version` | `10.4.28-MariaDB` | Installierte MariaDB-Version |
-| `Uptime` | `1 hour 23 min` | Wie lange der Server bereits läuft (seit letztem Start) |
-| `Current user` | `root@localhost` | Angemeldeter Benutzer und Verbindungshost |
+| `Server version` | `10.4.28-MariaDB` | Installierte Version |
+| `Uptime` | `1 hour 23 min` | Laufzeit seit letztem Start |
+| `Current user` | `root@localhost` | Angemeldeter Benutzer + Host |
 
 ---
 
@@ -358,20 +331,15 @@ Optionen:
 
 | Verzeichnis | Inhalt |
 |-------------|--------|
-| `C:\xampp\mysql\bin` | Ausführbare Programme: `mysql.exe`, `mysqld.exe`, `mysqldump.exe`, usw. |
-| `C:\xampp\mysql\data` | Datenbankdaten, Log-Dateien, Fehlerprotokoll (`<hostname>.err`) |
+| `C:\xampp\mysql\bin` | Ausführbare Programme: `mysql.exe`, `mysqld.exe`, `mysqldump.exe` |
+| `C:\xampp\mysql\data` | Datenbankdaten, Log-Dateien, Fehlerprotokoll (`hostname.err`) |
 
 ---
 
 ### Inhalt der `my.ini`-Datei
 
-Die `my.ini` ist die zentrale Konfigurationsdatei des MySQL/MariaDB-Servers. Sie enthält:
+Die `my.ini` ist die zentrale Konfigurationsdatei. Sie enthält Einstellungen für den Server (`[mysqld]`), alle Clients (`[client]`) und einzelne Tools (`[mysql]`, `[mysqldump]`).
 
-- **Servereinstellungen** (`[mysqld]`): Port, Verzeichnisse, Zeichensatz, Puffergrössen
-- **Client-Einstellungen** (`[client]`/`[mysql]`): Standardverbindungsparameter
-- **Tool-Einstellungen** (`[mysqldump]`): Optionen für mysqldump
-
-Wichtigste Parameter:
 ```ini
 [mysqld]
 port              = 3306
@@ -396,9 +364,9 @@ innodb_buffer_pool_size = 16M
 - [x] UTF bedeutet Unicode Transformation Format
 - [ ] UTF-8 hat nur 8 Bit lange Zeichen aus dem Unicode-Zeichensatz
 
-> **ANSI ≠ ASCII**: ANSI (z.B. ISO-8859-1) ist eine Erweiterung von ASCII auf 8 Bit.  
-> **Unicode-Codelänge**: Unicode definiert Codepunkte (bis U+10FFFF), die Codelänge hängt vom Encoding ab (UTF-8: 1–4 Byte).  
-> **UTF-8**: Variabel lang – ASCII-Zeichen brauchen 1 Byte, andere bis zu 4 Byte.
+> **ANSI ≠ ASCII**: ANSI (z.B. ISO-8859-1) ist eine 8-Bit-Erweiterung von ASCII.  
+> **Unicode-Codelänge**: Unicode definiert Codepunkte bis U+10FFFF – die Bit-Länge hängt vom Encoding ab.  
+> **UTF-8**: variabel lang (1–4 Byte), nicht nur 8 Bit.
 
 ---
 
@@ -412,19 +380,18 @@ innodb_buffer_pool_size = 16M
 - [ ] Eine Kollationseinstellung gilt für die ganze Tabelle (Entität).
 - [x] „Binärsortierung" ist die Sortierung anhand des binären Codes der verglichenen Zeichen.
 
-> **`_ci`** = case **in**sensitive (ignoriert Gross-/Kleinschreibung) – nicht das Gegenteil.  
-> **Kollation** kann pro Spalte unterschiedlich sein – sie gilt nicht zwingend für die ganze Tabelle.  
-> **Standard**: MariaDB/MySQL verwendet `utf8mb4_general_ci` als Standard, nicht `utf8_general_cs`.
+> **`_ci`** = case **in**sensitive (ignoriert Gross-/Kleinschreibung) – nicht umgekehrt.  
+> **Kollation** kann pro Spalte unterschiedlich sein.  
+> **Standard in MariaDB**: `utf8mb4_general_ci`, nicht `utf8_general_cs`.
 
 ---
 
-### Was haben Sie bei der DB Kollation beobachtet? (Latin1, general, ci, cs, ...)
+### Was haben Sie bei der DB Kollation beobachtet?
 
-- Mit `utf8mb4_general_ci` werden `ä`, `ae` und `Ä` als gleich betrachtet → Suchergebnisse können unerwartete Treffer liefern
-- Mit `utf8mb4_unicode_ci` ist die Sortierung nach Unicode-Standard präziser, aber langsamer
-- Mit `utf8mb4_german2_ci` wird `ä` wie `ae` sortiert (Telefonbuch-Reihenfolge): Müller erscheint nach Mueller
-- Mit `_cs` (case sensitive) unterscheidet MySQL zwischen `'Max'` und `'max'` – `WHERE Name = 'max'` findet `'Max'` **nicht**
-- `latin1` kann keine Sonderzeichen ausserhalb von Westeuropa speichern; Emojis z.B. werden abgeschnitten
+- Mit `utf8mb4_general_ci`: `ä`, `ae` und `Ä` werden als gleich betrachtet → unerwartete Suchergebnisse
+- Mit `utf8mb4_german2_ci`: `ä` wird wie `ae` sortiert (Telefonbuch) → Müller erscheint nach Mueller
+- Mit `_cs` (case sensitive): `'Max'` ≠ `'max'` – Gross-/Kleinschreibung wird unterschieden
+- `latin1` kann keine Emojis oder Sonderzeichen ausserhalb Westeuropas speichern
 
 ---
 
@@ -439,6 +406,6 @@ innodb_buffer_pool_size = 16M
 - [ ] `SELECT * FROM tabellenname;`
 - [ ] `SHOW TABLE tabellenname;`
 
-> `DESC` und `DESCRIBE` sind identisch – beide zeigen Spalten, Datentypen, NULL-Erlaubnis und Keys.  
-> `SHOW CREATE TABLE` gibt das vollständige CREATE-Statement inkl. Engine, Kollation und Constraints zurück.  
-> `SELECT *` gibt Daten zurück, nicht die Struktur. `SHOW TABLE` ist kein gültiger SQL-Befehl.
+> `DESC` und `DESCRIBE` sind identisch – zeigen Spalten, Datentypen, NULL und Keys.  
+> `SHOW CREATE TABLE` gibt das vollständige CREATE-Statement zurück.  
+> `SELECT *` liefert Daten, nicht die Struktur. `SHOW TABLE` ist kein gültiger Befehl.
