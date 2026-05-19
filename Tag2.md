@@ -228,3 +228,217 @@ Dump wieder einspielen:
 ```bash
 mysql -u root -p firma < Tag2/firma_dump.sql
 ```
+
+---
+
+## 5. Checkpoint-Fragen: DB-Server und XAMPP
+
+### Wie kann der MySQL-Server gestartet werden?
+
+- [ ] Start von mysql.exe im CMD-Fenster
+- [x] Start von mysqld.exe im CMD-Fenster
+- [x] über MySQL-Workbench
+- [ ] Eingabe von localhost als URL im Browser
+- [x] NET START mysql (im CMD-Fenster)
+- [x] mit dem Dienstmanager von Windows
+
+> `mysql.exe` ist der Client, nicht der Server. `localhost` im Browser öffnet phpMyAdmin, startet aber nicht mysqld.
+
+---
+
+### Welche Informationen erhalten Sie beim Befehl `status;` im MySQL-Konsolenfenster?
+
+- [x] Version des Konsolenprogramms
+- [x] Betriebszeit des Servers
+- [x] Version des Servers
+- [ ] Betriebszeit des DB-Klienten mysql
+
+Beispielausgabe von `status;`:
+```
+mysql  Ver 15.1 Distrib 10.4.28-MariaDB, for Win64 (AMD64)
+
+Connection id:          8
+Current database:
+Current user:           root@localhost
+SSL:                    Not in use
+Using delimiter:        ;
+Server version:         10.4.28-MariaDB mariadb.org binary distribution
+Protocol version:       10
+Connection:             localhost via TCP/IP
+Server characterset:    utf8mb4
+Db     characterset:    utf8mb4
+Client characterset:    utf8mb4
+Conn.  characterset:    utf8mb4
+TCP port:               3306
+Uptime:                 1 hour 23 min 45 sec
+```
+
+---
+
+### Welche Daten befinden sich im Verzeichnis `datadir` (z. B. `C:\xampp\mysql\data`)?
+
+- [x] Protokoll-Dateien (Log-Files)
+- [x] Fehlerprotokolle
+- [ ] die ausführbaren MySQL-Programme, z.B. mysql.exe
+- [x] Datenbanken
+
+> Die ausführbaren Programme liegen im `bin`-Verzeichnis (z.B. `C:\xampp\mysql\bin`).
+
+---
+
+### Wie prüfen Sie, ob der MySQL-Server läuft?
+
+- [x] mit dem Dienst-Manager von Windows
+- [ ] mit dem GUI-Tool Administrator
+- [x] durch Eingabe des Befehls `status` im CMD-Fenster (nach Login mit mysql.exe)
+- [x] mit dem Task-Manager von Windows (Prozess `mysqld.exe`)
+
+---
+
+### Wie testen Sie die Installation des DB-Servers?
+
+1. Prüfen ob `mysqld.exe` im Task-Manager sichtbar ist
+2. Mit dem mysql-Client verbinden: `mysql -u root -p`
+3. Befehl `SHOW DATABASES;` ausführen → gibt Systemdatenbanken zurück
+4. phpMyAdmin aufrufen: `http://localhost/phpmyadmin`
+5. In MySQL Workbench eine neue Verbindung zu `localhost:3306` herstellen
+
+---
+
+### Wie überprüfen Sie die Laufzeit des DB-Servers?
+
+```sql
+-- Option 1: im mysql-Client
+status;
+-- → zeigt "Uptime: X hours Y min Z sec"
+
+-- Option 2: per SQL
+SHOW STATUS LIKE 'Uptime';
+-- → gibt Sekunden zurück
+
+-- Option 3: Dienst-Manager
+-- Spalte "Startzeit" beim MySQL-Dienst ablesen
+```
+
+---
+
+### Wozu verwenden Sie das Programm `mysql.exe`? Wie starten Sie es?
+
+`mysql.exe` ist der interaktive Kommandozeilen-**Client** für MariaDB/MySQL. Damit können Sie:
+- SQL-Befehle direkt eingeben
+- Skript-Dateien ausführen (`mysql -u root -p < script.sql`)
+- Datenbanken verwalten
+
+**Starten:**
+```cmd
+mysql -u root -p
+```
+Optionen:
+```
+-u root        Benutzername
+-p             Passwort abfragen
+-h localhost   Host (Standard: localhost)
+-P 3306        Port (Standard: 3306)
+-D firma       Direkt eine Datenbank öffnen
+```
+
+---
+
+### 3 Informationen aus `status;` mit Bedeutung
+
+| Information | Beispielwert | Bedeutung |
+|-------------|-------------|-----------|
+| `Server version` | `10.4.28-MariaDB` | Installierte MariaDB-Version |
+| `Uptime` | `1 hour 23 min` | Wie lange der Server bereits läuft (seit letztem Start) |
+| `Current user` | `root@localhost` | Angemeldeter Benutzer und Verbindungshost |
+
+---
+
+### 2 wichtige Verzeichnisse der MySQL-Installation
+
+| Verzeichnis | Inhalt |
+|-------------|--------|
+| `C:\xampp\mysql\bin` | Ausführbare Programme: `mysql.exe`, `mysqld.exe`, `mysqldump.exe`, usw. |
+| `C:\xampp\mysql\data` | Datenbankdaten, Log-Dateien, Fehlerprotokoll (`<hostname>.err`) |
+
+---
+
+### Inhalt der `my.ini`-Datei
+
+Die `my.ini` ist die zentrale Konfigurationsdatei des MySQL/MariaDB-Servers. Sie enthält:
+
+- **Servereinstellungen** (`[mysqld]`): Port, Verzeichnisse, Zeichensatz, Puffergrössen
+- **Client-Einstellungen** (`[client]`/`[mysql]`): Standardverbindungsparameter
+- **Tool-Einstellungen** (`[mysqldump]`): Optionen für mysqldump
+
+Wichtigste Parameter:
+```ini
+[mysqld]
+port              = 3306
+basedir           = "C:/xampp/mysql"
+datadir           = "C:/xampp/mysql/data"
+character-set-server  = utf8mb4
+collation-server      = utf8mb4_unicode_ci
+innodb_buffer_pool_size = 16M
+```
+
+---
+
+## 6. Checkpoint-Fragen: Codierung und Kollation
+
+### Welche Aussagen treffen zur Codierung zu?
+
+- [ ] Ein Datenbankserver erkennt die Codierung einer Datei automatisch
+- [x] Codierung ist eine Vereinbarung zwischen dem Nutzer und dem System.
+- [x] Die Codierung legt fest, welche binäre Bitkombination zu welchem Zeichen gehört.
+- [ ] ANSI- und ASCII-Codierung ist dasselbe
+- [ ] Der Unicode-Zeichensatz hat 32 Bit Codelänge
+- [x] UTF bedeutet Unicode Transformation Format
+- [ ] UTF-8 hat nur 8 Bit lange Zeichen aus dem Unicode-Zeichensatz
+
+> **ANSI ≠ ASCII**: ANSI (z.B. ISO-8859-1) ist eine Erweiterung von ASCII auf 8 Bit.  
+> **Unicode-Codelänge**: Unicode definiert Codepunkte (bis U+10FFFF), die Codelänge hängt vom Encoding ab (UTF-8: 1–4 Byte).  
+> **UTF-8**: Variabel lang – ASCII-Zeichen brauchen 1 Byte, andere bis zu 4 Byte.
+
+---
+
+### Welche Aussagen treffen zur Kollation zu?
+
+- [ ] `utf8_general_cs` ist die Standard-Einstellung bei MySQL.
+- [x] In der DIN-Normierung zur deutschen Kollation werden zwei Varianten zur Umlauthandhabung angeboten.
+- [ ] Die Endung `_ci` gibt an, dass die Sortierung die Gross-/Kleinschreibweise **unterscheidet**.
+- [x] Seit MySQL 5.5.3 sollte `utf8mb4` anstelle von `utf8` verwendet werden.
+- [x] In der Konfig-Datei (my.ini) kann die UTF8-Codierung als Standard angegeben werden.
+- [ ] Eine Kollationseinstellung gilt für die ganze Tabelle (Entität).
+- [x] „Binärsortierung" ist die Sortierung anhand des binären Codes der verglichenen Zeichen.
+
+> **`_ci`** = case **in**sensitive (ignoriert Gross-/Kleinschreibung) – nicht das Gegenteil.  
+> **Kollation** kann pro Spalte unterschiedlich sein – sie gilt nicht zwingend für die ganze Tabelle.  
+> **Standard**: MariaDB/MySQL verwendet `utf8mb4_general_ci` als Standard, nicht `utf8_general_cs`.
+
+---
+
+### Was haben Sie bei der DB Kollation beobachtet? (Latin1, general, ci, cs, ...)
+
+- Mit `utf8mb4_general_ci` werden `ä`, `ae` und `Ä` als gleich betrachtet → Suchergebnisse können unerwartete Treffer liefern
+- Mit `utf8mb4_unicode_ci` ist die Sortierung nach Unicode-Standard präziser, aber langsamer
+- Mit `utf8mb4_german2_ci` wird `ä` wie `ae` sortiert (Telefonbuch-Reihenfolge): Müller erscheint nach Mueller
+- Mit `_cs` (case sensitive) unterscheidet MySQL zwischen `'Max'` und `'max'` – `WHERE Name = 'max'` findet `'Max'` **nicht**
+- `latin1` kann keine Sonderzeichen ausserhalb von Westeuropa speichern; Emojis z.B. werden abgeschnitten
+
+---
+
+## 7. Checkpoint-Fragen: Daten importieren
+
+### Mit welchem Befehl kontrollieren Sie die Struktur einer Tabelle?
+
+- [ ] `SHOW DATABASES;`
+- [x] `SHOW CREATE TABLE tabellenname;`
+- [x] `DESC tabellenname;`
+- [x] `DESCRIBE tabellenname;`
+- [ ] `SELECT * FROM tabellenname;`
+- [ ] `SHOW TABLE tabellenname;`
+
+> `DESC` und `DESCRIBE` sind identisch – beide zeigen Spalten, Datentypen, NULL-Erlaubnis und Keys.  
+> `SHOW CREATE TABLE` gibt das vollständige CREATE-Statement inkl. Engine, Kollation und Constraints zurück.  
+> `SELECT *` gibt Daten zurück, nicht die Struktur. `SHOW TABLE` ist kein gültiger SQL-Befehl.
