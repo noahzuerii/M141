@@ -11,7 +11,7 @@ Lernportfolio von Noah Bachmann – TBZ, Lehrjahr 2025/2026
 | Tag | Thema | Inhalt | Bewertung |
 |:---:|-------|--------|:---------:|
 | 1 | [Intro & Installation](Tag1.md) | Einführung, RDBMS-Übersicht, MariaDB, Workbench, phpMyAdmin, XAMPP | |
-| 2 | Konfiguration & Datenimport | my.ini, Schema/Dump/CSV/JSON importieren | |
+| 2 | [Konfiguration & Datenimport](Tag2.md) | my.ini, Kollation, SQL-Befehlsgruppen, Datenbank „Firma" | |
 | 3 | Tabellentypen & Transaktionen | MyISAM, InnoDB, Locking, Transaktionskonzept | |
 | 4 | Datenbanksicherheit | Authentifizierung, Netzwerkzugang | |
 | 5 | Zugriffssystem | Autorisierung, DCL | **LB1 (20%)** Tag 1–4 |

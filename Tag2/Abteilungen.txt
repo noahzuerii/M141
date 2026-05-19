@@ -1,0 +1,6 @@
+Abtlg_ID;Bezeichnung
+1;Geschäftsleitung
+2;Informatik
+3;Buchhaltung
+4;Personalwesen
+5;Verkauf
