@@ -1,6 +1,6 @@
 # M141 – Datenbanksystem in Betrieb nehmen
 
-Lernportfolio von **Noah Bachmann** – TBZ Zürich, 2025/2026
+Lernportfolio von **Noah Bachmann** – TBZ Zürich, 2026
 
 > Installiert und konfiguriert ein Datenbanksystem, führt eine Dateninitialisierung durch, stellt die Funktionalität sicher und führt die Übergabe in den produktiven Betrieb durch.
 
