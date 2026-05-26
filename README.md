@@ -14,10 +14,10 @@ Offizielles Modul-Repo: [gitlab.com/ch-tbz-it/Stud/m141/m141](https://gitlab.com
 |:---:|-------|---------|:---------:|
 | [1](1.Tag/README.md) | Intro & Installation | Einführung, RDBMS-Übersicht, MariaDB, Workbench, phpMyAdmin, XAMPP | |
 | [2](2.Tag/README.md) | Konfiguration & Datenimport | my.ini, Kollation, SQL-Befehlsgruppen, Datenbank „Firma" | |
-| 3 | Tabellentypen & Transaktionen | MyISAM, InnoDB, Locking, Transaktionskonzept | |
-| 4 | Datenbanksicherheit | Authentifizierung, Netzwerkzugang | |
-| 5 | Zugriffssystem | Autorisierung, DCL | **LB1 20%** |
-| 6 | Server Administration | Admin-Tools, Logging, Optimierungen | |
+| [3](3.Tag/README.md) | Tabellentypen & Transaktionen | MyISAM, InnoDB, Locking, Transaktionskonzept | |
+| [4](4.Tag/README.md) | Datenbanksicherheit | Authentifizierung, Netzwerkzugang | |
+| [5](5.Tag/README.md) | Zugriffssystem | Autorisierung, DCL | **LB1 20%** |
+| [6](6.Tag/README.md) | Server Administration | Admin-Tools, Logging, Optimierungen | |
 | 7 | Testen | Testing, Ablauf & Performance | **LB2 30%** |
 | 8 | Praxisarbeit MS A | Lokale DBMS: DDL, DML, DCL | **LB3 50%** |
 | 9 | Praxisarbeit MS B | Lokale DBMS testen → Migration auf Cloud-DBMS | |
