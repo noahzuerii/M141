@@ -19,9 +19,7 @@ Offizielles Modul-Repo: [gitlab.com/ch-tbz-it/Stud/m141/m141](https://gitlab.com
 | [5](5.Tag/README.md) | Zugriffssystem | Autorisierung, DCL | **LB1 20%** |
 | [6](6.Tag/README.md) | Server Administration | Admin-Tools, Logging, Optimierungen | |
 | 7 | Testen | Testing, Ablauf & Performance | **LB2 30%** |
-| 8 | Praxisarbeit MS A | Lokale DBMS: DDL, DML, DCL | **LB3 50%** |
-| 9 | Praxisarbeit MS B | Lokale DBMS testen → Migration auf Cloud-DBMS | |
-| 10 | Praxisarbeit MS C/D & Demo | Cloud-DBMS testen, optimieren, Protokollierung, Demo | |
+| [8–10 → LB3](LB3/README.md) | Praxisarbeit (MS A–D) | DDL, DCL, Import, Bereinigung, Rollen, Migration AWS RDS, Cloud-Tests, Demo | **LB3 50%** |
 
 ---
 
