@@ -344,17 +344,3 @@ Script: [06_backpacker_cloud_test.sql](./06_backpacker_cloud_test.sql)
 6. `EXPLAIN` auf JOIN-Abfrage → Indizes genutzt
 
 ---
-
-## KI-Prompts
-
-**DDL & Konvertierung:**
-> "Ich habe ein altes phpMyAdmin-DDL-Script (MyISAM, latin1, keine FKs, fehlende PKs). Konvertiere es zu InnoDB + utf8mb4, füge die fehlenden PRIMARY KEYs und FOREIGN KEY Constraints hinzu, und ergänze sinnvolle Indizes auf FK-Spalten. Tabellen: tbl_land, tbl_leistung, tbl_personen, tbl_benutzer, tbl_buchung, tbl_positionen. [DDL eingefügt]"
-
-**DCL Spalten-Grants:**
-> "Erstelle ein MariaDB-DCL-Script mit zwei Rollen (benutzer_rolle, management_rolle) für eine Hostel-Datenbank. Benutzer-Rolle: kein Zugriff auf Password-Spalte in tbl_benutzer, deaktiviert nur SELECT. Umsetzung mit GRANT SELECT (col1, col2...) Spalten-Grants. [Zugriffsmatrix eingefügt]"
-
-**Import & Bereinigung:**
-> "Schreibe ein SQL-Script für LOAD DATA LOCAL INFILE (6 CSV-Dateien, Delimiter ';', utf8mb4), gefolgt von FK-Waisen-Checks mit LEFT JOIN, Password-Hashing mit SHA2(..., 256) für Klartext-Passwörter, und Prüfungen auf negative Preise und Duplikate."
-
-**Migration AWS RDS:**
-> "Erstelle Shell-Befehle (Windows CMD) für mysqldump → AWS RDS Migration: mit --single-transaction, --set-gtid-purged=OFF, SSL-Mode=REQUIRED beim Import, und SQL-Verifikationsqueries (Zeilenzahlen, FK-Constraints, Engine-Check, SSL-Status)."
