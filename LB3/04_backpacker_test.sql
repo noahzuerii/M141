@@ -259,3 +259,99 @@ SELECT
 FROM information_schema.tables
 WHERE table_schema = 'backpacker_noah_lb3'
 ORDER BY (data_length + index_length) DESC;
+
+-- =============================================================
+-- T4 – VIEWS, STORED PROCEDURES, FUNCTION, TRIGGER
+-- (als root – 07_backpacker_views_proc.sql muss vorher gelaufen sein)
+-- =============================================================
+
+-- [V01] v_buchung_uebersicht – Buchungsübersicht
+SELECT * FROM v_buchung_uebersicht;
+-- Erwartet: alle Buchungen mit Gastname, Herkunftsland, Nächte, Anzahl Positionen
+
+-- [V02] v_umsatz_pro_buchung – Umsatz je Buchung
+SELECT * FROM v_umsatz_pro_buchung;
+-- Erwartet: Buchungen mit berechnetem Nettobetrag
+
+-- [V03] v_top_leistungen – beliebteste Leistungen
+SELECT * FROM v_top_leistungen;
+-- Erwartet: Leistungen sortiert nach Umsatz absteigend
+
+-- [S01] sp_monatsbericht – Bericht für Juni 2026
+CALL sp_monatsbericht(2026, 6);
+-- Erwartet: Buchungen im Juni 2026 (aus Testdaten: 1087, 1088)
+
+-- [S02] sp_umsatz_zusammenfassung – Gesamtstatistik
+CALL sp_umsatz_zusammenfassung();
+-- Erwartet: eine Zeile mit aggregierten Werten
+
+-- [F01] fn_buchung_netto – Funktion im SELECT
+SELECT
+    b.Buchungs_ID,
+    CONCAT(p.Vorname, ' ', p.Name)  AS Gast,
+    fn_buchung_netto(b.Buchungs_ID) AS Netto_CHF
+FROM tbl_buchung b
+JOIN tbl_personen p ON b.Personen_FS = p.Personen_ID
+ORDER BY fn_buchung_netto(b.Buchungs_ID) DESC;
+-- Erwartet: Beträge identisch mit v_umsatz_pro_buchung
+
+-- [TR01] Trigger – Datumsprüfung (BEFORE INSERT, Negativ-Test)
+INSERT INTO tbl_buchung (Personen_FS, Ankunft, Abreise, Land_FS)
+VALUES (2042, '2026-06-10 14:00:00', '2026-06-08 11:00:00', 1);
+-- Erwartet: ERROR 45000 – 'Abreise muss nach Ankunft liegen'
+
+-- [TR02] Trigger – gültiges Datum funktioniert (Positiv-Test)
+INSERT INTO tbl_buchung (Personen_FS, Ankunft, Abreise, Land_FS)
+VALUES (2042, '2026-06-20 14:00:00', '2026-06-22 11:00:00', 1);
+-- Erwartet: Query OK
+DELETE FROM tbl_buchung
+WHERE Personen_FS = 2042 AND Ankunft = '2026-06-20 14:00:00';
+
+-- [TR03] Trigger – Passwortänderung schreibt Audit-Log
+UPDATE tbl_benutzer
+SET Password = SHA2('TemporaerPW!99', 256)
+WHERE Benutzer_ID = 27;
+-- Erwartet: Query OK, Audit-Log-Eintrag erstellt
+
+SELECT * FROM tbl_audit_log ORDER BY geaendert_am DESC LIMIT 5;
+-- Erwartet: Eintrag mit aktion = 'PASSWORD_CHANGED', tabelle = 'tbl_benutzer'
+
+-- Zurücksetzen:
+UPDATE tbl_benutzer
+SET Password = SHA2('Start123!', 256)
+WHERE Benutzer_ID = 27;
+
+-- [W01] Window Function – RANK + kumulierter Umsatz
+SELECT
+    b.Buchungs_ID,
+    CONCAT(p.Vorname, ' ', p.Name)                                          AS Gast,
+    ROUND(SUM(pos.Anzahl * pos.Preis * (1 - pos.Rabatt / 100)), 2)         AS Netto_CHF,
+    RANK()    OVER (ORDER BY SUM(pos.Anzahl * pos.Preis * (1 - pos.Rabatt / 100)) DESC)   AS Umsatz_Rang,
+    NTILE(3)  OVER (ORDER BY SUM(pos.Anzahl * pos.Preis * (1 - pos.Rabatt / 100)) DESC)   AS Umsatz_Gruppe
+FROM tbl_buchung b
+JOIN tbl_personen   p   ON b.Personen_FS  = p.Personen_ID
+JOIN tbl_positionen pos ON pos.Buchungs_FS = b.Buchungs_ID
+GROUP BY b.Buchungs_ID, p.Vorname, p.Name
+ORDER BY Umsatz_Rang;
+-- Erwartet: Ranking 1..N, Gruppierung in 3 Terzile
+
+-- [CTE01] CTE – Buchungen über Durchschnittsumsatz
+WITH umsatz_cte AS (
+    SELECT
+        b.Buchungs_ID,
+        CONCAT(p.Vorname, ' ', p.Name)                                  AS Gast,
+        ROUND(SUM(pos.Anzahl * pos.Preis * (1 - pos.Rabatt / 100)), 2) AS Netto_CHF
+    FROM tbl_buchung b
+    JOIN tbl_personen    p   ON b.Personen_FS  = p.Personen_ID
+    JOIN tbl_positionen  pos ON pos.Buchungs_FS = b.Buchungs_ID
+    GROUP BY b.Buchungs_ID, p.Vorname, p.Name
+)
+SELECT
+    Buchungs_ID,
+    Gast,
+    Netto_CHF,
+    ROUND(Netto_CHF - (SELECT AVG(Netto_CHF) FROM umsatz_cte), 2) AS Abweichung_CHF
+FROM umsatz_cte
+WHERE Netto_CHF > (SELECT AVG(Netto_CHF) FROM umsatz_cte)
+ORDER BY Netto_CHF DESC;
+-- Erwartet: nur Buchungen über dem Durchschnitt, mit Abweichungsbetrag

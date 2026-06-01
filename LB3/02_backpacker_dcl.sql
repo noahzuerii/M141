@@ -79,6 +79,9 @@ GRANT SELECT
 GRANT SELECT ON backpacker_noah_lb3.tbl_buchung    TO management_rolle;
 GRANT SELECT ON backpacker_noah_lb3.tbl_positionen TO management_rolle;
 
+-- tbl_audit_log: Management darf lesen (kein manuelles Schreiben!)
+GRANT SELECT ON backpacker_noah_lb3.tbl_audit_log  TO management_rolle;
+
 -- Alle anderen Tabellen: vollständiges CRUD
 GRANT SELECT, INSERT, UPDATE, DELETE
     ON backpacker_noah_lb3.tbl_personen   TO management_rolle;
