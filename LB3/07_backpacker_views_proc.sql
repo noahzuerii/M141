@@ -134,8 +134,7 @@ BEGIN
         COUNT(DISTINCT b.Buchungs_ID)                                       AS Buchungen_Total,
         COUNT(DISTINCT b.Personen_FS)                                        AS Unique_Gaeste,
         ROUND(SUM(pos.Anzahl * pos.Preis * (1 - pos.Rabatt / 100)), 2)     AS Gesamtumsatz_CHF,
-        ROUND(AVG(DATEDIFF(b.Abreise, b.Ankunft)), 1)                       AS Avg_Aufenthalt_Naechte,
-        MAX(ROUND(SUM(pos.Anzahl * pos.Preis * (1 - pos.Rabatt / 100)), 2)) AS Top_Buchung_CHF
+        ROUND(AVG(DATEDIFF(b.Abreise, b.Ankunft)), 1)                       AS Avg_Aufenthalt_Naechte
     FROM tbl_buchung b
     JOIN tbl_positionen pos ON pos.Buchungs_FS = b.Buchungs_ID;
 END$$
