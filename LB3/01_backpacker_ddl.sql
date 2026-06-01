@@ -103,8 +103,9 @@ CREATE TABLE tbl_buchung (
     Abreise     DATETIME  DEFAULT NULL,
     Land_FS     INT(11)   DEFAULT NULL,
     PRIMARY KEY (Buchungs_ID),
-    INDEX idx_buch_pers (Personen_FS),
-    INDEX idx_buch_land (Land_FS),
+    INDEX idx_buch_pers    (Personen_FS),
+    INDEX idx_buch_land    (Land_FS),
+    INDEX idx_buch_ankunft (Ankunft),
     CONSTRAINT fk_buch_pers
         FOREIGN KEY (Personen_FS) REFERENCES tbl_personen (Personen_ID)
         ON UPDATE CASCADE ON DELETE SET NULL,
@@ -145,12 +146,35 @@ CREATE TABLE tbl_positionen (
         ON UPDATE CASCADE ON DELETE SET NULL,
     CONSTRAINT fk_pos_ben
         FOREIGN KEY (Benutzer_FS) REFERENCES tbl_benutzer (Benutzer_ID)
-        ON UPDATE CASCADE ON DELETE RESTRICT
+        ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT chk_pos_preis   CHECK (Preis  >= 0),
+    CONSTRAINT chk_pos_anzahl  CHECK (Anzahl >= 0),
+    CONSTRAINT chk_pos_rabatt  CHECK (Rabatt BETWEEN 0 AND 100)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_unicode_ci
   COMMENT = 'enthält einzelne Buchungspositionen'
   AUTO_INCREMENT = 4055;
+
+-- -------------------------------------------------------------
+-- tbl_audit_log – Audit-Log für sensible Datenänderungen
+-- Befüllt automatisch durch Trigger (→ 07_backpacker_views_proc.sql)
+-- Kein manuelles INSERT durch Applikationsbenutzer möglich.
+-- -------------------------------------------------------------
+CREATE TABLE tbl_audit_log (
+    log_id       INT         NOT NULL AUTO_INCREMENT,
+    tabelle      VARCHAR(50) NOT NULL,
+    datensatz_id INT         NOT NULL,
+    aktion       VARCHAR(30) NOT NULL,
+    alter_wert   TEXT        COLLATE utf8mb4_unicode_ci,
+    neuer_wert   TEXT        COLLATE utf8mb4_unicode_ci,
+    geaendert_am TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (log_id),
+    INDEX idx_audit_tab (tabelle, datensatz_id)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = 'Audit-Log – nur via Trigger beschreibbar';
 
 -- -------------------------------------------------------------
 -- Schema überprüfen
