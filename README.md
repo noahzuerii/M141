@@ -36,8 +36,8 @@ pie title Gewichtung der Modulnote M141
     "LB3: Praxisarbeit Cloud-Migration (50%)" : 50
 ```
 
-| Leistungsbeurteilung | Gewichtung | Prüfungsstoff & Kriterien | Status |
-|----------------------|:----------:|---------------------------|:------:|
+| Leistungsbeurteilung | Gewichtung | Prüfungsstoff & Kriterien |
+|----------------------|:----------:|---------------------------|
 | **LB1** | **20 %** | Theorie und Praxis zu Zugriffsrechten, Authentifizierung und Benutzerverwaltung (Tag 1–4).
 | **LB2** | **30 %** | Praxisprüfung zur Server-Administration, Performance-Optimierung und Backup/Recovery (Tag 1–7). 
 | **LB3** | **50 %** | Selbstständige Praxisarbeit: Vollständige Migration der Datenbank „Backpacker" auf AWS RDS, inklusive SQL-Programmierung (Views, Trigger, Stored Procedures).
