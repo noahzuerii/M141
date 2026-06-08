@@ -29,12 +29,11 @@ Die Ausbildung ist in wöchentliche Lektionstage gegliedert. Jedes Verzeichnis e
 
 Die Modulnote setzt sich aus drei gewichteten Leistungsbeurteilungen (LB) zusammen:
 
-```
- Modulnote M141:
- 
- [██░░░░░░░]  20%  LB1 (Tag 1–4): Autorisierung & Sicherheit (Theorie/Praxis)
- [███░░░░░░]  30%  LB2 (Tag 1–7): Server-Administration, Logging & Performance-Testing
- [█████░░░░]  50%  LB3 (Tag 8–10): Praxisarbeit (Migration Access -> MariaDB -> AWS RDS)
+```mermaid
+pie title Gewichtung der Modulnote M141
+    "LB1: Autorisierung & Sicherheit (20%)" : 20
+    "LB2: Administration & Performance (30%)" : 30
+    "LB3: Praxisarbeit Cloud-Migration (50%)" : 50
 ```
 
 | Leistungsbeurteilung | Gewichtung | Prüfungsstoff & Kriterien | Status |
