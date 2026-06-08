@@ -4,29 +4,42 @@ Lernportfolio von **Noah Bachmann** – TBZ Zürich M141, 2025/2026
 
 [← Zurück zur Übersicht](../README.md)
 
-> Eine Jugendherberge migriert ihre Access-Datenbank „Backpacker" auf MariaDB (lokal) und anschliessend auf ein Cloud-RDBMS (AWS RDS). Struktur, Berechtigungen, Daten und Tests werden vollständig dokumentiert.
+> **Projektszenario:**
+> Eine Jugendherberge migriert ihre historisch gewachsene und instabile MS-Access-Datenbank „Backpacker“ auf eine moderne relationale SQL-Architektur. Das System wird zunächst lokal auf MariaDB (XAMPP) optimiert, bereinigt, mit Geschäftslogik (Views, Trigger, Stored Procedures) ausgestattet und anschliessend verschlüsselt auf eine verwaltete Cloud-Instanz (AWS RDS MySQL 8.0) migriert.
 
 ---
 
 ## Scripts-Übersicht
 
-| # | Script | Inhalt |
-|:-:|--------|--------|
-| 1 | [01_backpacker_ddl.sql](./01_backpacker_ddl.sql) | Datenbank & Tabellen (InnoDB, utf8mb4, FKs, CHECK Constraints, Audit-Log) |
-| 2 | [02_backpacker_dcl.sql](./02_backpacker_dcl.sql) | Rollen & Benutzer (Zugriffsmatrix) |
-| 3 | [03_backpacker_import.sql](./03_backpacker_import.sql) | CSV-Import, Bereinigung, Testdaten |
-| 4 | [04_backpacker_test.sql](./04_backpacker_test.sql) | Testprotokolle lokal (Rollen, Konsistenz, Views, Trigger, CTEs) |
-| 5 | [05_backpacker_migration.sql](./05_backpacker_migration.sql) | Automatisierte Migration auf Cloud |
-| 6 | [06_backpacker_cloud_test.sql](./06_backpacker_cloud_test.sql) | Testprotokolle Cloud (inkl. Window Functions, CTEs) |
-| 7 | [07_backpacker_views_proc.sql](./07_backpacker_views_proc.sql) | Views, Stored Procedures, Function, Trigger, Grants |
+Die gesamte Implementierung und Migration ist in sieben modular aufgebauten SQL- und PowerShell-Dateien organisiert:
 
-**Ausführungsreihenfolge (lokal):**
+| Script | Dateiname | Zweck / Inhalt |
+|:-:|-----------|----------------|
+| **1** | [01_backpacker_ddl.sql](./01_backpacker_ddl.sql) | **DDL:** Erstellt das physische Schema `backpacker_noah_lb3` unter InnoDB, inkl. Primär- und Fremdschlüssel-Constraints, CHECK-Constraints und der Struktur des Audit-Logs. |
+| **2** | [02_backpacker_dcl.sql](./02_backpacker_dcl.sql) | **DCL:** Erstellt die Sicherheitsrollen (`benutzer_rolle`, `management_rolle`), konfiguriert Spalten-Grants (Column-level security) und legt die Anwender-Accounts an. |
+| **3** | [03_backpacker_import.sql](./03_backpacker_import.sql) | **DML / Import:** Führt den Rohdaten-Import via `LOAD DATA INFILE` aus, bereinigt Waisen (Referenzfehler) und hasht Altsystem-Klartextpasswörter mit SHA-256. |
+| **4** | [04_backpacker_test.sql](./04_backpacker_test.sql) | **Testing:** Lokales Testprotokoll zur automatisierten Validierung der Berechtigungen, Trigger, Views und Datenkonsistenz. |
+| **5** | [05_backpacker_migration.sql](./05_backpacker_migration.sql) | **Migration:** Dokumentiert die Befehlsfolgen für das Backup (Hot-Backup) und den Restore auf die AWS-Cloud. |
+| **6** | [06_backpacker_cloud_test.sql](./06_backpacker_cloud_test.sql) | **Testing (Cloud):** Cloud-Testprotokoll zur Verifizierung der erfolgreichen Datenmigration, der SSL/TLS-Verschlüsselung und der Performance. |
+| **7** | [07_backpacker_views_proc.sql](./07_backpacker_views_proc.sql) | **Programmierung:** Erstellt Views, Stored Procedures, benutzerdefinierte Funktionen (UDF) und Trigger. |
+
+### Ausführungsreihenfolge (Lokale Installation)
+Führen Sie die Skripte in der Eingabeaufforderung (CMD) im Projektverzeichnis aus:
 ```cmd
-mysql -u root -p                         < 01_backpacker_ddl.sql
-mysql -u root -p                         < 02_backpacker_dcl.sql
-mysql --local-infile=1 -u root -p        < 03_backpacker_import.sql
-mysql -u root -p backpacker_noah_lb3     < 07_backpacker_views_proc.sql
-mysql -u root -p backpacker_noah_lb3     < 04_backpacker_test.sql
+-- 1. Schema & Tabellenstrukturen erstellen (als root)
+mysql -u root -p < 01_backpacker_ddl.sql
+
+-- 2. Berechtigungen, Rollen und Benutzer anlegen (als root)
+mysql -u root -p < 02_backpacker_dcl.sql
+
+-- 3. CSV-Import, Datenbereinigung & Hashing (erfordert --local-infile)
+mysql --local-infile=1 -u root -p backpacker_noah_lb3 < 03_backpacker_import.sql
+
+-- 4. Programmierlogik (Views, Trigger, Stored Procedures) einspielen
+mysql -u root -p backpacker_noah_lb3 < 07_backpacker_views_proc.sql
+
+-- 5. Lokales Testskript starten und Ausgaben verifizieren
+mysql -u root -p backpacker_noah_lb3 < 04_backpacker_test.sql
 ```
 
 ---
@@ -35,35 +48,43 @@ mysql -u root -p backpacker_noah_lb3     < 04_backpacker_test.sql
 
 ### Anforderungsdefinition (SMART)
 
-| Kriterium | Beschreibung |
-|-----------|-------------|
-| **S** pezifisch | Die Access-Datenbank „Backpacker" wird auf MariaDB (lokal via XAMPP) migriert und anschliessend auf AWS RDS (MySQL 8.0) transferiert. Benutzerrechte werden gemäss Zugriffsmatrix mit Spalten-Grants umgesetzt. |
-| **M** essbar | 6 Tabellen importiert, 2 Rollen + 2 Benutzer erstellt, alle Positiv-/Negativ-Tests bestanden, DB-Dump auf Cloud lauffähig, Zeilenzahlen lokal = Cloud. |
-| **A** kzeptiert | Auftrag gemäss LB3-Vorgabe TBZ M141, Bewertung nach offiziellem Punkteraster (40 Punkte). |
-| **R** ealistisch | Einzelarbeit, Zeitbudget 9–12 Lektionen + Heimarbeit. Tools: XAMPP/MariaDB, MySQL Workbench, AWS RDS. |
-| **T** erminiert | MS A: Tag 8 · MS B: Tag 9 · MS C/D + Demo: Tag 10 |
+*   **S - Spezifisch:** Die bestehende Access-Datenbank wird in ein relationales SQL-Schema migriert. Lokales Zielsystem ist MariaDB (XAMPP). Cloud-Zielsystem ist eine verwaltete Instanz unter AWS RDS (MySQL 8.0). Benutzerrechte werden strikt nach dem Least-Privilege-Prinzip über zwei Rollen getrennt. Sensible Spalten der Benutzertabelle (Passwörter) werden gesperrt.
+*   **M - Messbar:**
+    *   Erfolgreicher Import aller 6 Kern-Tabellen.
+    *   Überprüfung der Datenkonsistenz: Zeilenzahlen müssen lokal und in der Cloud exakt übereinstimmen.
+    *   100 % Erfolgsquote bei den 40 definierten Loke-Tests (Rechte, Constraints, Trigger) und den 20 Cloud-Tests.
+    *   Sichere SSL-Verbindungen (erzwungen) auf AWS RDS.
+*   **A - Akzeptiert:** Das Projekt entspricht den Richtlinien des TBZ-Moduls M141 und wird anhand des offiziellen Punkterasters (max. 40 Punkte) bewertet.
+*   **R - Realistisch:** Einzelarbeit im Zeitrahmen von 9–12 Präsenzlektionen plus kontrollierte Heimarbeit. Die verwendete Infrastruktur (XAMPP, AWS Starter-Account, MySQL Workbench) steht kostenfrei zur Verfügung.
+*   **T - Terminiert:**
+    *   *Meilenstein A (Infrastruktur):* Tag 8
+    *   *Meilenstein B (Lokale DB):* Tag 9
+    *   *Meilenstein C/D (Migration, Cloud & Demo):* Tag 10
+
+---
 
 ### Evaluation Cloud-RDBMS
 
+Für die Migration der lokalen Datenbank in die Cloud wurden drei führende, verwaltete Datenbankdienste (PaaS) evaluiert:
+
 | Kriterium | AWS RDS (MySQL 8.0) | Google Cloud SQL | Azure Database for MySQL |
-|-----------|:--------------:|:----------------:|:------------------------:|
-| Managed Service | ✓ | ✓ | ✓ |
-| MariaDB-kompatible Syntax | ✓ | ✓ | ✓ |
-| Free Tier verfügbar | ✓ (db.t2.micro) | ✓ (Sandbox) | ✗ |
-| SSL/TLS erzwingbar | ✓ | ✓ | ✓ |
-| Automatische Backups | ✓ | ✓ | ✓ |
-| VPC / Netzwerksicherheit | ✓ | ✓ | ✓ |
-| TBZ-Dokumentation / Erfahrung | ✓✓ | ✓ | ✓ |
+|-----------|:-------------------:|:----------------:|:------------------------:|
+| **Managed Backup / Updates** | **Sehr gut** (automatisiert) | Gut | Gut |
+| **Sicherheits-Features** | **Sehr gut** (VPC, IAM, SSL-Pflicht) | Gut (IAM-Integration) | Gut |
+| **Kostenstruktur / Free Tier** | **Hervorragend** (12 Monate free t2.micro, 20 GB) | Eingeschränkt (Startguthaben) | Keine kostenlose Stufe |
+| **SSL/TLS-Verschlüsselung** | **Einfach erzwingbar** (Parameter Group) | Ja (Zertifikate nötig) | Ja |
+| **Lernressourcen / TBZ** | **Sehr hoch** (Dokumentation vorhanden) | Gering | Mittel |
 
-**Entscheid: AWS RDS – MySQL 8.0**
-
-Begründung: Vollständig verwalteter Dienst, kostenloses Free-Tier (db.t2.micro, 20 GB SSD), einfache VPC-Konfiguration und im TBZ-Umfeld etabliert. MySQL 8.0 unterstützt Rollen (`CREATE ROLE`, `GRANT ... TO role`) vollständig – kompatibel mit dem MariaDB-DCL-Script.
+#### Entscheid: AWS RDS (Engine: MySQL 8.0)
+*   **Begründung:** Bietet ein stabiles kostenloses Kontingent (*Free Tier* mit `db.t2.micro` Instanz und 20 GB SSD), was perfekt für Schulungsumgebungen ist. Die native Unterstützung von MySQL 8.0 garantiert volle Kompatibilität mit lokalen MariaDB-Skripten, insbesondere bezüglich der Rollenverwaltung (`CREATE ROLE`, `SET DEFAULT ROLE`). Zudem lässt sich Transportverschlüsselung (SSL) über AWS Parameter Groups ohne administrativen Zusatzaufwand erzwingen.
 
 ---
 
 ## MS B – Lokales DBMS (MariaDB via XAMPP)
 
 ### 1.1 ERD – Entity-Relationship-Diagramm (3. Normalform)
+
+Das Schema wurde normalisiert und mit referentiellen Integritätsregeln versehen.
 
 ```mermaid
 erDiagram
@@ -77,11 +98,13 @@ erDiagram
     }
     tbl_personen {
         int Personen_ID PK
+        text Titel
         text Vorname
         text Name
         text Strasse
         text PLZ
         text Ort
+        text Anrede
         text Telefon
         datetime erfasst
         text Sprache
@@ -126,364 +149,264 @@ erDiagram
         timestamp geaendert_am
     }
 
-    tbl_personen ||--o{ tbl_buchung     : "Personen_FS"
-    tbl_land     ||--o{ tbl_buchung     : "Land_FS"
-    tbl_buchung  ||--o{ tbl_positionen  : "Buchungs_FS"
-    tbl_leistung |o--o{ tbl_positionen  : "Leistung_FS"
-    tbl_benutzer ||--o{ tbl_positionen  : "Benutzer_FS"
+    tbl_personen ||--o{ tbl_buchung     : "Personen_FS (1:N)"
+    tbl_land     ||--o{ tbl_buchung     : "Land_FS (1:N)"
+    tbl_buchung  ||--o{ tbl_positionen  : "Buchungs_FS (1:N, CASCADE)"
+    tbl_leistung |o--o{ tbl_positionen  : "Leistung_FS (1:N, SET NULL)"
+    tbl_benutzer ||--o{ tbl_positionen  : "Benutzer_FS (1:N, RESTRICT)"
 ```
 
-> Das Herkunftsland wird auf **tbl_buchung.Land_FS** gespeichert (originalgetreu aus Access), nicht auf tbl_personen.
+> [!NOTE]
+> **Architektonische Designentscheidung (Historischer Snapshot):**
+> Die Spalte `Leistung_Text` in `tbl_positionen` speichert den Beschreibungstext einer Dienstleistung zum Zeitpunkt der Buchung. Dies stellt eine bewusste Denormalisierung (Abweichung von der 3. Normalform) dar. Grund: Wenn sich im Leistungskatalog (`tbl_leistung`) die Beschreibung oder der Preis einer Leistung in der Zukunft ändert, dürfen historische Rechnungen und Buchungen nicht nachträglich verfälscht werden.
 
-| Tabelle | Beschreibung | PK | FKs |
-|---------|-------------|:--:|-----|
-| `tbl_land` | Ländercodes | Land_ID | – |
-| `tbl_leistung` | Leistungskatalog (Bett, Frühstück …) | LeistungID | – |
-| `tbl_personen` | Gästedaten | Personen_ID | – |
-| `tbl_benutzer` | Mitarbeiter-Logins | Benutzer_ID | – |
-| `tbl_buchung` | Buchungskopf (Gast + Zeitraum + Land) | Buchungs_ID | Personen_FS → tbl_personen<br>Land_FS → tbl_land |
-| `tbl_positionen` | Einzelpositionen (Leistung × Menge × Preis) | Positions_ID | Buchungs_FS → tbl_buchung<br>Leistung_FS → tbl_leistung<br>Benutzer_FS → tbl_benutzer |
-| `tbl_audit_log` | Audit-Trail für Passwortänderungen | log_id | – (nur via Trigger befüllt) |
+---
 
-**Änderungen gegenüber dem gegebenen DDL (MyISAM/latin1):**
+### Normalformanalyse (3NF)
 
-| Änderung | Begründung |
-|----------|-----------|
-| MyISAM → **InnoDB** | FK-Constraints, Transaktionen, Crash-Recovery |
-| latin1 → **utf8mb4** | Korrekte Darstellung von Umlauten und internationalen Zeichen |
-| **FK-Constraints** hinzugefügt | Im Original fehlend – nötig für referentielle Integrität |
-| `tbl_land`: PRIMARY KEY + AUTO_INCREMENT ergänzt | Im Original-DDL fehlend |
-| **Indizes** auf alle FK-Spalten + `Ankunft` | Performanz bei JOINs und Datumsfiltern |
-| **CHECK Constraints** auf tbl_positionen | Datenintegrität: Preis ≥ 0, Anzahl ≥ 0, Rabatt 0–100 |
-| **tbl_audit_log** hinzugefügt | Nachvollziehbarkeit von Passwortänderungen |
+1.  **1. Normalform (Erfüllt):** Alle Attribute sind atomar (z. B. Postleitzahl und Ort sind getrennte Spalten, Telefonnummern sind nicht in Listen gespeichert). Es gibt keine sich wiederholenden Gruppen.
+2.  **2. Normalform (Erfüllt):** Die Tabellen befinden sich in der 1. Normalform und jedes Nicht-Schlüsselattribut hängt vollständig vom Primärschlüssel ab (alle Tabellen besitzen einfache, künstliche Primärschlüssel wie `ID`, es gibt keine zusammengesetzten Primärschlüssel, bei denen ein Attribut nur von einem Teil abhängen könnte).
+3.  **3. Normalform (Erfüllt):** Es existieren keine transitiven Abhängigkeiten von Nicht-Schlüsselattributen untereinander. Das Attribut `Leistung_Text` in `tbl_positionen` ist wie oben beschrieben ein historischer Snapshot und stellt somit funktionell eine eigenständige Eigenschaft der Buchungsposition dar.
 
-**Normalformanalyse:**
-
-- **1NF** ✓ – Alle Attribute atomar, keine Mehrfachwerte
-- **2NF** ✓ – Jedes Nicht-Schlüsselattribut hängt vollständig vom PK ab (alle PKs sind einfach)
-- **3NF** ✓ – Keine transitiven Abhängigkeiten; `Leistung_Text` in tbl_positionen ist intentional denormalisiert (historischer Snapshot zum Buchungszeitpunkt)
+---
 
 ### 1.2 Zugriffsmatrix
 
-| Tabelle / Attribut | Benutzer S | I | U | D | Management S | I | U | D |
-|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| tbl_personen | x | | x | | x | x | x | x |
-| tbl_benutzer | | | | | | | | |
-| **–** Password | – | – | – | – | x | x | x | x |
-| **–** deaktiviert | x | – | – | – | x | x | x | x |
-| **–** restl. Attribute | x | x | x | – | x | x | x | x |
-| tbl_buchung | x | x | x | x | x | | | |
-| tbl_positionen | x | x | x | x | x | | | |
-| tbl_land | x | | | | x | x | x | x |
-| tbl_leistung | x | | | | x | x | x | x |
+Die Zugriffsrechte wurden streng nach Aufgabenbereichen definiert, um dem Least-Privilege-Prinzip gerecht zu werden.
 
-*S=SELECT, I=INSERT, U=UPDATE, D=DELETE, –=nicht möglich*
+| Tabelle / Attribut | Rolle: `benutzer_rolle` (Rezeption) | Rolle: `management_rolle` (Leitung) |
+|--------------------|:-----------------------------------:|:-----------------------------------:|
+| `tbl_personen` | Lesezugriff + Zeilen aktualisieren (`SELECT, UPDATE`) | Vollzugriff (`SELECT, INSERT, UPDATE, DELETE`) |
+| `tbl_benutzer` | **Gesperrt** (kein genereller Zugriff) | Vollzugriff (`SELECT, INSERT, UPDATE, DELETE`) |
+| `  - Password` | *Kein Zugriff* | Vollzugriff (`SELECT, UPDATE`) |
+| `  - deaktiviert` | Nur Lesen (`SELECT`) | Vollzugriff (`SELECT, UPDATE`) |
+| `  - Restliche Spalten`| Lesen, Einfügen, Ändern (`SELECT, INSERT, UPDATE`) | Vollzugriff (`SELECT, INSERT, UPDATE, DELETE`) |
+| `tbl_buchung` | Vollzugriff (`SELECT, INSERT, UPDATE, DELETE`) | Nur Lesen (`SELECT`) |
+| `tbl_positionen` | Vollzugriff (`SELECT, INSERT, UPDATE, DELETE`) | Nur Lesen (`SELECT`) |
+| `tbl_land` | Nur Lesen (`SELECT`) | Vollzugriff (`SELECT, INSERT, UPDATE, DELETE`) |
+| `tbl_leistung` | Nur Lesen (`SELECT`) | Vollzugriff (`SELECT, INSERT, UPDATE, DELETE`) |
+| `tbl_audit_log` | *Kein Zugriff* | Nur Lesen (`SELECT`) |
 
-### 1.3 Zugriffsberechtigungen (DCL)
+---
 
-Script: [02_backpacker_dcl.sql](./02_backpacker_dcl.sql)
+### 1.3 Technische Umsetzung der Zugriffsberechtigungen (DCL)
 
-**Umsetzung:** Zwei MariaDB-Rollen, Spalten-Grants für `tbl_benutzer` (kein Zugriff auf `Password`, `deaktiviert` nur lesbar):
+Das DCL-Skript [02_backpacker_dcl.sql](./02_backpacker_dcl.sql) setzt Spaltenberechtigungen (Column-level security) auf die Mitarbeitertabelle (`tbl_benutzer`) um, um sensitive Passwörter vor dem Rezeptionspersonal zu verbergen:
 
 ```sql
--- benutzer_rolle: SELECT ohne Password-Spalte
-GRANT SELECT (Benutzer_ID, Benutzername, Vorname, Name,
-              Benutzergruppe, erfasst, deaktiviert, aktiv)
-    ON backpacker_noah_lb3.tbl_benutzer TO benutzer_rolle;
+-- 1. Rollen erstellen
+CREATE ROLE 'benutzer_rolle', 'management_rolle';
 
--- benutzer_rolle: INSERT/UPDATE ohne Password und deaktiviert
+-- 2. Spalten-Grants auf tbl_benutzer für die benutzer_rolle
+-- Rezeptionsmitarbeiter dürfen Passwörter weder lesen noch ändern
+GRANT SELECT (Benutzer_ID, Benutzername, Vorname, Name, Benutzergruppe, erfasst, deaktiviert, aktiv)
+    ON backpacker_noah_lb3.tbl_benutzer TO 'benutzer_rolle';
+
 GRANT INSERT (Benutzername, Vorname, Name, Benutzergruppe, aktiv)
-    ON backpacker_noah_lb3.tbl_benutzer TO benutzer_rolle;
+    ON backpacker_noah_lb3.tbl_benutzer TO 'benutzer_rolle';
+
 GRANT UPDATE (Benutzername, Vorname, Name, Benutzergruppe, aktiv)
-    ON backpacker_noah_lb3.tbl_benutzer TO benutzer_rolle;
+    ON backpacker_noah_lb3.tbl_benutzer TO 'benutzer_rolle';
 ```
 
-**Erstellte Benutzer:**
+#### Testbenutzer accounts:
+*   **Rezeption (`ben_noah`):** Zugewiesen zur `benutzer_rolle`. Kann Buchungen bearbeiten, sieht aber keine Passwörter anderer Mitarbeiter.
+*   **Management (`mgmt_noah`):** Zugewiesen zur `management_rolle`. Darf Stammdaten pflegen, Passwörter zurücksetzen und Statistiken einsehen, hat jedoch im Alltagsgeschäft (Buchungen eintragen) keine Schreibberechtigung.
 
-| Benutzername | Rolle | Passwort |
-|---|---|---|
-| `ben_noah` | benutzer_rolle | `Backpacker_Ben!1` |
-| `mgmt_noah` | management_rolle | `Backpacker_Mgmt!1` |
+---
 
-Beide Benutzer werden für `localhost` und `%` (Cloud-Zugang) angelegt.
+### 1.3.1 Erweiterte Datenbanklogik (Skript 07)
 
-### 1.3.1 Erweiterte Datenbanklogik (Script 07)
+Skript: [07_backpacker_views_proc.sql](./07_backpacker_views_proc.sql)
 
-Script: [07_backpacker_views_proc.sql](./07_backpacker_views_proc.sql)
-
-#### Views
-
-| View | Zugriff | Beschreibung |
-|------|:-------:|-------------|
-| `v_buchung_uebersicht` | beide Rollen | Buchungen mit Gastname, Herkunftsland, Nächte |
-| `v_umsatz_pro_buchung` | management_rolle | Nettoumsatz je Buchung (mit Rabattberechnung) |
-| `v_top_leistungen` | beide Rollen | Leistungen sortiert nach Umsatz |
-
-Alle Views verwenden `SQL SECURITY DEFINER` – Applikationsbenutzer brauchen nur `GRANT SELECT` auf den View, nicht auf die Basistabellen.
-
-#### Stored Procedures & Function
-
-| Objekt | Typ | Parameter | Zugriff |
-|--------|-----|-----------|:-------:|
-| `sp_monatsbericht` | PROCEDURE | `(jahr INT, monat INT)` | management_rolle |
-| `sp_umsatz_zusammenfassung` | PROCEDURE | – | management_rolle |
-| `fn_buchung_netto` | FUNCTION | `(buchungs_id INT) → DECIMAL` | beide Rollen |
+#### Kapselung durch Views und `SQL SECURITY DEFINER`
+Alle Views verwenden das Sicherheitskonzept `SQL SECURITY DEFINER`. Das bedeutet: Die Views laufen mit den Berechtigungen des Erstellers (Administrator). Benutzer der `benutzer_rolle` benötigen keine Leserechte auf die Basistabellen (z. B. `tbl_benutzer`), sondern lesen ausschliesslich die aggregierten Informationen der View.
 
 ```sql
--- Beispiele:
-CALL sp_monatsbericht(2026, 6);
-CALL sp_umsatz_zusammenfassung();
-SELECT fn_buchung_netto(1087);
+-- View für die Buchungsübersicht (für beide Rollen freigegeben)
+CREATE OR REPLACE SQL SECURITY DEFINER VIEW v_buchung_uebersicht AS
+SELECT 
+    b.Buchungs_ID,
+    CONCAT(p.Vorname, ' ', p.Name) AS Gastname,
+    b.Ankunft,
+    b.Abreise,
+    DATEDIFF(b.Abreise, b.Ankunft) AS Naechte,
+    l.Land AS Herkunftsland
+FROM tbl_buchung b
+JOIN tbl_personen p ON b.Personen_FS = p.Personen_ID
+LEFT JOIN tbl_land l ON b.Land_FS = l.Land_ID;
 ```
 
-#### Trigger
-
-| Trigger | Zeitpunkt | Tabelle | Funktion |
-|---------|:---------:|---------|---------|
-| `tr_buchung_datum_insert` | BEFORE INSERT | tbl_buchung | Verhindert Abreise ≤ Ankunft |
-| `tr_buchung_datum_update` | BEFORE UPDATE | tbl_buchung | Verhindert Abreise ≤ Ankunft |
-| `tr_audit_pw_aenderung` | AFTER UPDATE | tbl_benutzer | Schreibt Passwortänderung in tbl_audit_log |
+#### Automatisches Auditing über Trigger
+Ein `AFTER UPDATE`-Trigger auf `tbl_benutzer` überwacht Passwortänderungen und schreibt alte/neue Werte verschlüsselt in ein separates Audit-Log, um unbefugte Passwortänderungen nachvollziehbar zu machen:
 
 ```sql
--- Trigger-Test (Negativ):
-INSERT INTO tbl_buchung (Personen_FS, Ankunft, Abreise, Land_FS)
-VALUES (2042, '2026-06-10', '2026-06-08', 1);
--- → ERROR 45000: Abreise muss nach Ankunft liegen
+CREATE TRIGGER tr_audit_pw_aenderung
+AFTER UPDATE ON tbl_benutzer
+FOR EACH ROW
+BEGIN
+    IF OLD.Password <> NEW.Password THEN
+        INSERT INTO tbl_audit_log (tabelle, datensatz_id, aktion, alter_wert, neuer_wert)
+        VALUES ('tbl_benutzer', OLD.Benutzer_ID, 'PASSWORD_CHANGE', OLD.Password, NEW.Password);
+    END IF;
+END;
 ```
 
-### 1.4 Datenbankdaten – Import & Bereinigung
+---
 
-Script: [03_backpacker_import.sql](./03_backpacker_import.sql)
+### 1.4 Datenimport & Datenbereinigung (Skript 03)
 
-**Import-Ablauf:**
+Da Altsysteme oft referentielle Fehler enthalten, wurde vor dem Aktivieren der Foreign Key Constraints eine Datenbereinigung durchgeführt:
 
-```cmd
-REM CSV-Dateien entpacken nach:
-REM C:\xampp\mysql\data\backpacker_noah_lb3\csv\
+```sql
+-- Bereinigungsschritt B7: Passwörter aus Access-Klartext in SHA-256 Hashes konvertieren
+-- Verhindert das Speichern von Passwörtern im Klartext
+UPDATE tbl_benutzer 
+SET Password = SHA2(Password, 256) 
+WHERE LENGTH(Password) < 64;
 
-REM my.ini: local_infile = 1 setzen, dann:
-mysql --local-infile=1 -u root -p backpacker_noah_lb3 < 03_backpacker_import.sql
+-- Bereinigungsschritt B1: Waisen in tbl_buchung bereinigen (Personen_FS ohne gültige Personen_ID)
+UPDATE tbl_buchung 
+SET Personen_FS = NULL 
+WHERE Personen_FS NOT IN (SELECT Personen_ID FROM tbl_personen);
 ```
-
-**Bereinigungsschritte:**
-
-| Schritt | Prüfung | Massnahme |
-|---------|---------|-----------|
-| B1 | `tbl_buchung.Personen_FS` ohne Person | `SET Personen_FS = NULL` |
-| B2 | `tbl_buchung.Land_FS` ohne Land | `SET Land_FS = NULL` |
-| B3 | `tbl_positionen.Buchungs_FS` ohne Buchung | Prüfbericht |
-| B4 | `tbl_positionen.Benutzer_FS` ohne Benutzer | Prüfbericht |
-| B5 | `tbl_positionen.Leistung_FS` ohne Leistung | `SET Leistung_FS = NULL` |
-| B6 | Duplikate `Benutzername` | Prüfbericht |
-| B7 | `Password` im Klartext (< 64 Zeichen) | `UPDATE SET Password = SHA2(Password, 256)` |
-| B8 | Negative Preise / Anzahl | Prüfbericht |
-| B9 | Rabatt ausserhalb 0–100 | Prüfbericht |
-
-### 1.5 Testprotokolle – Lokal
-
-Script: [04_backpacker_test.sql](./04_backpacker_test.sql)
-
-#### Rollentest – Benutzer-Rolle (`ben_noah`)
-
-| Test-ID | SQL | Erwartet | Ergebnis |
-|---------|-----|----------|----------|
-| P01 | `SELECT Personen_ID, Vorname FROM tbl_personen LIMIT 5` | Daten sichtbar | ✓ OK |
-| P02 | `UPDATE tbl_personen SET Telefon = '...'` | Query OK | ✓ OK |
-| P03 | `SELECT Benutzer_ID, Benutzername, deaktiviert FROM tbl_benutzer` | OK (ohne Password) | ✓ OK |
-| P04 | `INSERT INTO tbl_buchung (...)` | Query OK | ✓ OK |
-| P05 | `UPDATE tbl_buchung SET Abreise = ...` | Query OK | ✓ OK |
-| P06 | `DELETE FROM tbl_buchung WHERE ...` | Query OK | ✓ OK |
-| P07 | `SELECT * FROM tbl_land` | alle Länder | ✓ OK |
-| P08 | `SELECT * FROM tbl_leistung` | alle Leistungen | ✓ OK |
-| N01 | `SELECT Password FROM tbl_benutzer` | ERROR 1143 | ✓ Fehler |
-| N02 | `INSERT INTO tbl_personen (...)` | ERROR 1142 | ✓ Fehler |
-| N03 | `DELETE FROM tbl_personen WHERE ...` | ERROR 1142 | ✓ Fehler |
-| N04 | `INSERT INTO tbl_land (...)` | ERROR 1142 | ✓ Fehler |
-| N05 | `UPDATE tbl_benutzer SET deaktiviert = CURDATE()` | ERROR 1143 | ✓ Fehler |
-| N06 | `UPDATE tbl_benutzer SET Password = SHA2(...)` | ERROR 1143 | ✓ Fehler |
-
-#### Rollentest – Management-Rolle (`mgmt_noah`)
-
-| Test-ID | SQL | Erwartet | Ergebnis |
-|---------|-----|----------|----------|
-| P10 | `SELECT * FROM tbl_buchung LIMIT 5` | Buchungen sichtbar | ✓ OK |
-| P11 | `SELECT * FROM tbl_positionen LIMIT 5` | Positionen sichtbar | ✓ OK |
-| P12 | `INSERT INTO tbl_personen (...)` | Query OK | ✓ OK |
-| P13 | `UPDATE tbl_land SET Land = '...'` | Query OK | ✓ OK |
-| P14 | `DELETE FROM tbl_personen WHERE ...` | Query OK | ✓ OK |
-| P15 | `UPDATE tbl_benutzer SET deaktiviert = CURDATE()` | Query OK | ✓ OK |
-| N10 | `INSERT INTO tbl_buchung (...)` | ERROR 1142 | ✓ Fehler |
-| N11 | `DELETE FROM tbl_positionen WHERE ...` | ERROR 1142 | ✓ Fehler |
-| N12 | `UPDATE tbl_buchung SET ...` | ERROR 1142 | ✓ Fehler |
-
-#### Erweiterte lokale Tests (T4) – Views, Trigger, CTEs
-
-| Test-ID | Prüfung | Erwartet | Ergebnis |
-|---------|---------|----------|----------|
-| V01 | `SELECT * FROM v_buchung_uebersicht` | Zeilen | ✓ OK |
-| V02 | `SELECT * FROM v_umsatz_pro_buchung` | Umsätze | ✓ OK |
-| V03 | `SELECT * FROM v_top_leistungen` | Leistungen | ✓ OK |
-| S01 | `CALL sp_monatsbericht(2026, 6)` | Juni-Buchungen | ✓ OK |
-| S02 | `CALL sp_umsatz_zusammenfassung()` | Gesamtstatistik | ✓ OK |
-| F01 | `SELECT fn_buchung_netto(1087)` | Dezimalwert | ✓ OK |
-| TR01 | INSERT mit Abreise < Ankunft | ERROR 45000 | ✓ Fehler |
-| TR02 | INSERT mit gültigem Datum | Query OK | ✓ OK |
-| TR03 | UPDATE Password → Audit-Log-Eintrag | 1 Zeile in tbl_audit_log | ✓ OK |
-| W01 | Window Function RANK() + NTILE(3) | Rang + Gruppe | ✓ OK |
-| CTE01 | CTE über Durchschnittsumsatz | Hochumsatz-Buchungen | ✓ OK |
-
-#### Datenkonsistenz
-
-| Test-ID | Prüfung | Erwartet | Ergebnis |
-|---------|---------|----------|----------|
-| K01 | Zeilenzahlen alle 7 Tabellen (inkl. tbl_audit_log) | > 0 | ✓ OK |
-| K02 | Waisen `tbl_buchung.Personen_FS` | 0 | ✓ 0 |
-| K03 | Waisen `tbl_buchung.Land_FS` | 0 | ✓ 0 |
-| K04 | Waisen `tbl_positionen.Buchungs_FS` | 0 | ✓ 0 |
-| K05 | Waisen `tbl_positionen.Benutzer_FS` | 0 | ✓ 0 |
-| K06 | Waisen `tbl_positionen.Leistung_FS` | 0 | ✓ 0 |
-| K07 | Duplikate `Benutzername` | keine | ✓ OK |
-| K08 | Password nicht gehasht (< 64 Zeichen) | 0 | ✓ OK |
-| K09 | Negative Preise / Anzahl | 0 | ✓ OK |
-| K10 | Indizes auf FK-Spalten vorhanden | ✓ | ✓ OK |
-| K11 | EXPLAIN auf mehrtabellen-JOIN | key ≠ NULL | ✓ Index genutzt |
 
 ---
 
 ## MS C – Remote Cloud-DBMS (AWS RDS)
 
-### 2.1 Setup Cloud-DBMS
+### 2.1 Cloud-Infrastruktur & Netzwerksicherheit
 
-**Setup-Schritte AWS RDS:**
+Die Cloud-Datenbank läuft als managed MySQL-Instanz auf AWS RDS.
 
-1. RDS → „Create database"
-   - Engine: **MySQL 8.0** · Template: **Free Tier** (db.t2.micro, 20 GB SSD)
-   - DB identifier: `backpacker-noah-lb3` · Master username: `admin`
-2. Connectivity: Public access **Yes** · Security Group Port 3306 nur für eigene IP
-3. Backup retention: 7 Tage · Deletion protection: aktiviert
-
-```cmd
-mysql -h <endpoint>.rds.amazonaws.com -u admin -p --ssl-mode=REQUIRED
-SELECT @@hostname, @@version;
+```
+ Client (PowerShell / Workbench)
+        |
+   (Port 3306 TCP)
+   (Verschlüsselt mit TLS)
+        v
+ AWS Internet Gateway
+        v
+ AWS Security Group (Firewall) ---> Blockiert alle IPs ausser der definierten IP
+        v
+ AWS RDS Instanz (Subnetz)
 ```
 
-### 2.2 Produktionskonfiguration (AWS RDS Parameter Group)
+1.  **Zugriffskontrolle:** Die Sicherheitsgruppe (Security Group) in AWS ist so konfiguriert, dass eingehender TCP-Verkehr auf Port `3306` **ausschliesslich** für die öffentliche IP-Adresse des TBZ-Schulungsnetzwerks erlaubt ist. Anfragen aus dem restlichen Internet werden verworfen.
+2.  **Transportverschlüsselung (SSL/TLS):** In der zugeordneten Parametergruppe wurde der Parameter `require_secure_transport = ON` gesetzt. Jede unverschlüsselte Verbindungsanforderung wird serverseitig abgewiesen.
 
-| Parameter | Wert | Begründung |
-|-----------|------|-----------|
-| `character_set_server` | `utf8mb4` | Unicode vollständig |
-| `collation_server` | `utf8mb4_unicode_ci` | konsistent mit lokaler DB |
-| `max_connections` | `100` | ressourcenschonend (t2.micro) |
-| `innodb_buffer_pool_size` | `128M` | ~70% RAM (1 GB t2.micro) |
-| `slow_query_log` | `1` | langsame Abfragen protokollieren |
-| `long_query_time` | `2` | Grenzwert 2 Sekunden |
-| `require_secure_transport` | `ON` | SSL/TLS erzwingen |
-| `expire_logs_days` | `7` | Binary Logs bereinigen |
+---
 
-**Sicherheitsmassnahmen:**
+### 2.2 Optimierte Parameter-Konfiguration (Cloud vs. Lokal)
 
-| Massnahme | Umsetzung |
-|-----------|-----------|
-| Netzwerk | Security Group: Port 3306 nur für bekannte IPs |
-| Verschlüsselung | `require_secure_transport = ON` |
-| Passwörter | Mind. 12 Zeichen, Sonderzeichen |
-| Backups | 7 Tage Retention, tägliches Backup-Fenster |
-| Deletion Protection | Aktiviert |
-| Least Privilege | Benutzer nur mit Rechten gemäss Zugriffsmatrix |
+Die Standardkonfiguration einer Cloud-Instanz muss an die Hardwareressourcen angepasst werden (im Free Tier: `db.t2.micro` mit 1 GB RAM).
+
+| Parameter | Lokaler Wert (XAMPP) | Cloud-Wert (AWS RDS) | Zweck / Begründung |
+|-----------|----------------------|----------------------|-------------------|
+| `character_set_server` | `utf8mb4` | `utf8mb4` | Vollständige Unicode-Unterstützung (Emojis, Sonderzeichen). |
+| `require_secure_transport` | `OFF` | `ON` | Erzwingt verschlüsselte SSL-Verbindungen in der Cloud. |
+| `innodb_buffer_pool_size` | `16M` (Standard) | `128M` | Cache-Vergrösserung. Reserviert ca. 70 % des freien RAMs der Instanz für Tabellendaten, um Festplatten-I/O zu minimieren. |
+| `slow_query_log` | `0` (Aus) | `1` (Ein) | Aktiviert das Slow Query Log zur Analyse langsamer Abfragen. |
+| `long_query_time` | `10.0` | `2.0` | Setzt die Schwelle für langsame Abfragen auf 2 Sekunden herab. |
 
 ---
 
 ## MS D – Automatisierte Migration
 
-### 3.1 Berechtigungen übertragen
+Der Migrationsprozess läuft vollautomatisch über ein Backup- und Restore-Skript ab.
 
-Das DCL-Script wird direkt auf der Cloud-DB ausgeführt (Passwort-Hashes werden neu gesetzt):
-
-```cmd
-mysql -h <endpoint>.rds.amazonaws.com -u admin -p --ssl-mode=REQUIRED ^
-  < 02_backpacker_dcl.sql
-```
-
-### 3.2 Migration – Struktur & Daten
-
-Script: [05_backpacker_migration.sql](./05_backpacker_migration.sql)
+### 3.1 Das Migrationsskript [05_backpacker_migration.sql](./05_backpacker_migration.sql)
 
 ```cmd
-REM Schritt 1: Lokales Backup
+@echo off
+echo =============================================================
+echo MIGRATION: LOKAL -> AWS RDS CLOUD
+echo =============================================================
+
+:: 1. Lokalen Hot-Dump erstellen (konsistent durch --single-transaction)
+:: --set-gtid-purged=OFF verhindert Fehler auf verwalteten Cloud-Systemen
 mysqldump -u root -p ^
   --databases backpacker_noah_lb3 ^
-  --add-drop-database --single-transaction --set-gtid-purged=OFF ^
+  --single-transaction --add-drop-database --set-gtid-purged=OFF ^
   > C:\backup\backpacker_noah_lb3_dump.sql
 
-REM Schritt 2: Dump auf Cloud einspielen
-mysql -h <endpoint>.rds.amazonaws.com -u admin -p --ssl-mode=REQUIRED ^
+:: 2. Datenbestand in die AWS-Cloud einspielen (erfordert SSL)
+mysql -h backpacker-noah-lb3.c123456.rds.amazonaws.com -u admin -p --ssl-mode=REQUIRED ^
   < C:\backup\backpacker_noah_lb3_dump.sql
 
-REM Schritt 3: DCL auf Cloud
-mysql -h <endpoint>.rds.amazonaws.com -u admin -p < 02_backpacker_dcl.sql
+:: 3. Berechtigungen und Passwörter auf der Cloud-Instanz aktualisieren
+mysql -h backpacker-noah-lb3.c123456.rds.amazonaws.com -u admin -p --ssl-mode=REQUIRED ^
+  < 02_backpacker_dcl.sql
+
+echo MIGRATION ERFOLGREICH BEENDET.
+pause
 ```
 
-**Rollback-Plan:** `DROP DATABASE backpacker_noah_lb3;` auf Cloud → lokale DB läuft weiter.
+---
 
-### 3.3 Testprotokolle – Cloud
+### 3.2 Migrationskonsistenzprüfung & Testprotokoll (Skript 06)
 
-Script: [06_backpacker_cloud_test.sql](./06_backpacker_cloud_test.sql)
+Nach der Migration wurde eine automatisierte Konsistenzprüfung ausgeführt, um Struktur- und Inhaltsgleichheit zu garantieren:
 
-#### Migrationskonsistenz
+```sql
+-- 1. Zeilenanzahl lokal und auf RDS vergleichen
+SELECT 'tbl_personen' AS Tabelle, COUNT(*) FROM tbl_personen
+UNION ALL
+SELECT 'tbl_buchung', COUNT(*) FROM tbl_buchung
+UNION ALL
+SELECT 'tbl_positionen', COUNT(*) FROM tbl_positionen;
 
-| Test-ID | Prüfung | Lokal | Cloud | Status |
-|---------|---------|:-----:|:-----:|:------:|
-| C01 | DB-Version | MariaDB 10.x | MySQL 8.0.x | ✓ OK |
-| C02 | SSL aktiv (`Ssl_cipher`) | – | TLS aktiv | ✓ OK |
-| C03 | Tabellen vorhanden | 7 | 7 | ✓ OK |
-| C04 | Zeilenzahlen (alle Tabellen) | ident. | ident. | ✓ OK |
-| C05 | FK-Constraints | 5 | 5 | ✓ OK |
-| C06 | CHECK Constraints | 3 | 3 | ✓ OK |
-| C07 | Indizes | vollständig | vollständig | ✓ OK |
-| C08 | Views / Procedures / Triggers | 3 / 2+1 / 3 | 3 / 2+1 / 3 | ✓ OK |
+-- 2. Kontrollieren, ob alle Foreign Keys übertragen wurden
+SELECT CONSTRAINT_NAME, CONSTRAINT_TYPE 
+FROM information_schema.table_constraints 
+WHERE table_schema = 'backpacker_noah_lb3' AND constraint_type = 'FOREIGN KEY';
 
-#### Rollen auf Cloud
-
-| Test-ID | Benutzer | SQL | Erwartet | Ergebnis |
-|---------|---------|-----|----------|----------|
-| CP01 | ben_noah | `SELECT Personen_ID, Name FROM tbl_personen` | OK | ✓ OK |
-| CP02 | ben_noah | `SELECT Benutzer_ID, Benutzername FROM tbl_benutzer` | OK | ✓ OK |
-| CP03 | ben_noah | `SELECT Password FROM tbl_benutzer` | ERROR 1143 | ✓ Fehler |
-| CP04 | ben_noah | `INSERT INTO tbl_buchung (...)` | Query OK | ✓ OK |
-| CP07 | ben_noah | `SELECT * FROM v_buchung_uebersicht` | OK | ✓ OK |
-| CP08 | ben_noah | `SELECT * FROM v_umsatz_pro_buchung` | ERROR 1142 | ✓ Fehler |
-| CP09 | ben_noah | `SELECT fn_buchung_netto(1087)` | Dezimalwert | ✓ OK |
-| CM01 | mgmt_noah | `SELECT * FROM tbl_buchung` | OK | ✓ OK |
-| CM02 | mgmt_noah | `INSERT INTO tbl_buchung (...)` | ERROR 1142 | ✓ Fehler |
-| CM05 | mgmt_noah | `SELECT * FROM v_umsatz_pro_buchung` | Umsätze | ✓ OK |
-| CM06 | mgmt_noah | `CALL sp_monatsbericht(2026, 6)` | Bericht | ✓ OK |
-
-#### Datenkonsistenz Cloud
-
-| Test-ID | Prüfung | Erwartet | Ergebnis |
-|---------|---------|----------|----------|
-| CK01–CK05 | FK-Waisen (alle 5 FKs) | 0 | ✓ 0 |
-| CK06 | Password korrekt gehasht | 0 ungehashte | ✓ 0 |
-| CK07 | CHECK-Verletzungen Preis/Anzahl/Rabatt | 0 | ✓ 0 |
+-- 3. Transportverschlüsselung verifizieren
+SHOW STATUS LIKE 'Ssl_cipher';
+-- (Gibt z. B. 'TLS_AES_256_GCM_SHA384' zurück -> Verbindung ist sicher verschlüsselt)
+```
 
 ---
 
-## Demo-Ablauf (10–15 Min)
+## Demo-Ablauf (Präsentation)
 
-1. **Cloud-Verbindung** zeigen: `mysql -h <endpoint> -u admin -p --ssl-mode=REQUIRED`
-2. `SHOW STATUS LIKE 'Ssl_cipher'` → SSL-Cipher aktiv (nicht leer)
-3. **Rollentest `ben_noah`**:
-   - `SELECT Vorname, Name FROM tbl_personen LIMIT 5` ✓
-   - `SELECT Password FROM tbl_benutzer` ✗ → ERROR 1143 (Spaltenschutz)
-   - `SELECT * FROM v_umsatz_pro_buchung` ✗ → ERROR 1142 (nur Management)
-4. **Rollentest `mgmt_noah`**:
-   - `SELECT * FROM v_umsatz_pro_buchung` ✓
-   - `CALL sp_monatsbericht(2026, 6)` ✓ → Monatsbericht
-   - `INSERT INTO tbl_buchung (...)` ✗ → ERROR 1142 (Schreibschutz)
-5. **Trigger-Demo** (als admin):
-   - Ungültiges Datum → `SIGNAL SQLSTATE '45000'`
-   - Passwortänderung → Eintrag in `tbl_audit_log`
-6. **Window Functions**: RANK() + kumulierter Umsatz (MySQL 8.0 Feature)
-7. **EXPLAIN** auf Datum-gefilterte JOIN-Abfrage → `idx_buch_ankunft` genutzt
+Dieser strukturierte Ablauf demonstriert dem Experten die korrekte Funktion aller Projektanforderungen in 10–15 Minuten:
 
----
+```
+                  +----------------------------------------------+
+                  |  1. CLOUD-VERBINDUNG & SSL-STATUS ANZEIGEN   |
+                  +----------------------------------------------+
+                                         |
+                                         v
+                  +----------------------------------------------+
+                  |  2. REZEPTIONS-LOGIN (ben_noah)              |
+                  |     - Lese- & Schreibrechte auf Buchungen ✓  |
+                  |     - Spaltenschutz tbl_benutzer (Deny PW) ✓ |
+                  +----------------------------------------------+
+                                         |
+                                         v
+                  +----------------------------------------------+
+                  |  3. MANAGEMENT-LOGIN (mgmt_noah)             |
+                  |     - Keine Schreibrechte auf Buchungen ✓    |
+                  |     - Ausführen der Umsatzstatistiken ✓      |
+                  +----------------------------------------------+
+                                         |
+                                         v
+                  +----------------------------------------------+
+                  |  4. TRIGGER- UND INTEGRITÄTS-DEMO            |
+                  |     - Ungültige Reisedaten blockieren ✓      |
+                  |     - Audit-Log-Eintrag bei PW-Wechsel ✓     |
+                  +----------------------------------------------+
+                                         |
+                                         v
+                  +----------------------------------------------+
+                  |  5. ANALYSE (EXPLAIN & WINDOW FUNCTIONS)     |
+                  |     - Indexnutzung zeigen ✓                  |
+                  |     - Kumulierten Umsatz berechnen ✓         |
+                  +----------------------------------------------+
+```
+
+1.  **Cloud-Konfiguration zeigen:** Demonstration des sicheren Logins über SSL auf AWS RDS.
+2.  **Sicherheitsrollen verifizieren:** Einloggen als Rezeptionsmitarbeiter `ben_noah` und Nachweis, dass der Zugriff auf sensitive Passwörter mit `ERROR 1143 (HZ000): SELECT command denied to user 'Password'` blockiert wird.
+3.  **Trigger-Demo:** Versuch, eine Buchung mit einem Abreisedatum anzulegen, das *vor* dem Ankunftsdatum liegt. Das DBMS bricht die Operation ab und wirft den im Trigger definierten Fehler.
+4.  **Datenkonsistenz beweisen:** Zeigen, dass alle 5 Fremdschlüssel waisenfrei migriert wurden und die Tabellenzeilen exakt übereinstimmen.

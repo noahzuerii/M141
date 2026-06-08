@@ -8,177 +8,193 @@ SQL-Dateien in diesem Ordner: [Demo_Transaktionen.sql](Demo_Transaktionen.sql)
 
 ---
 
-## 1. Tabellentypen: MyISAM vs InnoDB
+## 1. Tabellentypen: MyISAM vs. InnoDB
 
-### Vergleich
+Die Wahl des Speicherverfahrens (Storage Engine) bestimmt, wie Tabellen physikalisch auf der Festplatte abgelegt, gesperrt und indiziert werden. In MariaDB/MySQL sind **MyISAM** und **InnoDB** die historisch und praktisch bedeutendsten Engines.
+
+### Speicherarchitektur im Detail
+
+```
+ Speicherstruktur auf der Festplatte (data/):
+ 
+ MyISAM-Tabelle:                          InnoDB-Tabelle (file-per-table):
+ +----------------------------------+     +----------------------------------+
+ |  kunden.frm  (Tabellendefinition)|     |  kunden.frm  (Tabellendefinition)|
+ +----------------------------------+     +----------------------------------+
+ |  kunden.MYD  (Reine Nutzdaten)   |     |  kunden.ibd                      |
+ +----------------------------------+     |  - Daten (B+ Tree)               |
+ |  kunden.MYI  (Indexstruktur)     |     |  - Primärindizes                 |
+ +----------------------------------+     |  - Sekundärindizes               |
+                                          +----------------------------------+
+```
 
 | Merkmal | MyISAM (/ Aria) | InnoDB |
 |---------|----------------|--------|
-| Transaktionen | Nein (Aria: einfach) | Ja |
-| Referentielle Integrität | Nein | Ja |
-| Locking | Table-Level | Row-Level |
-| Geschwindigkeit | Schneller | Etwas langsamer |
-| Speicherplatz | Weniger | Mehr |
-| Crash Recovery | Nein | Ja (automatisch) |
-| Speicherung | 3 Dateien pro Tabelle (`*.FRM`, `*.MYD`, `*.MYI`) | `*.FRM` + Tablespace (`ibdata1`) / `*.ibd` |
+| **Transaktionen** | Nein. Aria (MariaDB-Nachfolger von MyISAM) unterstützt einfache Crash-Sicherheit, aber keine vollen Transaktionen. | **Ja.** Unterstützt das vollständige ACID-Prinzip. |
+| **Referentielle Integrität** | Nein. Deklarative Foreign Keys werden ignoriert (die Tabellen werden erstellt, aber Fremdschlüssel-Constraints werden nicht überprüft). | **Ja.** Prüft und erzwingt alle Fremdschlüsselbeziehungen streng. |
+| **Locking-Stufe** | **Table-Level-Locking.** Schreibzugriffe sperren immer die gesamte Tabelle für andere Nutzer. | **Row-Level-Locking.** Nur die gerade veränderten Zeilen werden gesperrt. Hohe Parallelität im Mehrbenutzerbetrieb. |
+| **Crash-Recovery** | Nein. Nach einem Stromausfall oder Absturz können MyISAM-Tabellen beschädigt werden und müssen repariert werden (`REPAIR TABLE`). | **Ja (automatisch).** Stellt den Zustand beim Serverstart mittels Redo-Logs konsistent wieder her. |
+| **Speicherung** | Drei Dateien pro Tabelle: `.frm` (Metadaten), `.MYD` (Daten), `.MYI` (Indizes). | `.frm` (Metadaten) + Tablespace (entweder in der globalen Datei `ibdata1` oder pro Tabelle in einer `.ibd`-Datei). |
+| **Daten- & Indexspeicherung** | Daten und Indizes sind getrennt. Indizes verweisen auf die physische Dateiposition der Zeile. | **Clustered Index.** Tabellendaten sind direkt im Primärschlüssel-B+Tree organisiert. Sekundärindizes verweisen auf den Primärschlüssel. |
 
-### InnoDB-Tabelle erstellen
+---
+
+### Tabellentyp festlegen und ändern
 
 ```sql
-CREATE DATABASE innotest;
-USE innotest;
-
+-- Erstellen einer neuen Tabelle mit der InnoDB-Engine
 CREATE TABLE tbl_konto (
     id_k  INT AUTO_INCREMENT,
     Name  VARCHAR(30),
     Saldo DECIMAL(10,2),
     PRIMARY KEY (id_k)
 ) ENGINE = InnoDB;
-```
 
-### Tabellentyp nachträglich ändern
-
-```sql
+-- Tabellentyp einer bestehenden Tabelle nachträglich ändern
 ALTER TABLE tbl_benutzer ENGINE = InnoDB;
 
--- Prüfen:
+-- Engine-Typ und Status aller Tabellen einer DB kontrollieren
 SHOW TABLE STATUS FROM hotel;
 ```
 
-> Tabellen der Systemdatenbank `mysql` dürfen **nie** auf InnoDB umgestellt werden – sie müssen im MyISAM-Format bleiben!
+> [!CAUTION]
+> **Achtung bei Systemtabellen:**
+> Die internen Tabellen in der Systemdatenbank `mysql` (z. B. Privilege-Tabellen) wurden historisch als MyISAM angelegt. Ändern Sie niemals den Engine-Typ der Systemdatenbanken, da dies den Server instabil oder unbrauchbar machen kann.
 
-### Tablespace-Grösse prüfen
+---
+
+## 2. Transaktionen (Transaction Management)
+
+Eine **Transaktion** fasst mehrere SQL-Operationen zu einer logischen Einheit zusammen. Sie stellt sicher, dass Daten auch bei Hardwareabstürzen oder parallelen Zugriffen konsistent bleiben.
+
+### Syntax: BEGIN, COMMIT und ROLLBACK
 
 ```sql
-SELECT SPACE, NAME, ROUND((ALLOCATED_SIZE/1024/1024), 2) AS "Tablespace Size (MB)"
-FROM information_schema.INNODB_SYS_TABLESPACES
-ORDER BY 3 DESC;
+-- 1. Transaktion starten
+BEGIN; -- oder: START TRANSACTION;
+
+-- 2. Transaktionsoperationen durchführen
+UPDATE tbl_konto SET Saldo = Saldo - 500.00 WHERE Name = 'Müller';
+UPDATE tbl_konto SET Saldo = Saldo + 500.00 WHERE Name = 'Meier';
+
+-- 3. Transaktion abschliessen
+COMMIT;   -- Übernimmt alle Änderungen dauerhaft auf den Datenträger.
+-- ODER:
+ROLLBACK; -- Verwirft alle Änderungen seit dem BEGIN vollständig.
 ```
 
 ---
 
-## 2. Transaktionen
+### Autocommit-Modus
 
-### Wozu Transaktionen?
+Standardmässig läuft MySQL/MariaDB im **Autocommit-Modus** (`AUTOCOMMIT = 1`). Jedes einzelne SQL-Statement (z. B. ein `INSERT` oder `UPDATE`) wird sofort implizit committet und ist direkt unumkehrbar auf der Festplatte gespeichert.
 
-Transaktionen kapseln mehrere SQL-Anweisungen in einen Block, der **entweder ganz oder gar nicht** ausgeführt wird. Das schützt vor:
-
-1. **gleichzeitigen Änderungen** durch andere Clients (Isolierung)
-2. **Datenverlust bei Absturz** – offene Transaktionen werden automatisch zurückgerollt
-
-### Syntax: BEGIN, COMMIT, ROLLBACK
-
-```sql
-SET @uebertrag_var = 1000;
-
-BEGIN;   -- oder START TRANSACTION
-
-  -- Saldo prüfen, Übertrag ggf. nullen
-  SELECT IF(Saldo >= @uebertrag_var, @uebertrag_var, 0) INTO @uebertrag_var
-    FROM tbl_konto WHERE name = 'Von';
-
-  UPDATE tbl_konto SET Saldo = Saldo - @uebertrag_var WHERE name = 'Von';
-  UPDATE tbl_konto SET Saldo = Saldo + @uebertrag_var WHERE name = 'Nach';
-
-COMMIT;   -- alle Änderungen übernehmen
--- oder ROLLBACK;  -- alle Änderungen rückgängig machen
-```
-
-### Autocommit
-
-| Einstellung | Verhalten |
-|-------------|-----------|
-| `AUTOCOMMIT=1` (Standard) | Jedes Statement wird sofort ausgeführt |
-| `AUTOCOMMIT=0` | Jede Änderung gilt erst nach `COMMIT` |
-
-```sql
-SET AUTOCOMMIT = 0;   -- ab hier muss COMMIT explizit gesetzt werden
-```
+*   Um mehrere Statements manuell zu gruppieren, wird eine Transaktion explizit mit `BEGIN` gestartet (Autocommit wird temporär für diese Session ausgesetzt).
+*   Alternativ kann Autocommit dauerhaft für die aktuelle Session deaktiviert werden:
+    ```sql
+    SET AUTOCOMMIT = 0;
+    -- Ab hier müssen ALLE Datenänderungen explizit mit COMMIT bestätigt werden!
+    ```
 
 ---
 
 ## 3. ACID-Eigenschaften
 
-| Buchstabe | Begriff | Bedeutung |
-|-----------|---------|-----------|
-| **A** | Atomarität | Ganz oder gar nicht – kein halbfertiger Zustand |
-| **C** | Konsistenz | Datenbank bleibt nach der Transaktion widerspruchsfrei |
-| **I** | Isoliertheit | Transaktionen beeinflussen sich nicht gegenseitig |
-| **D** | Dauerhaftigkeit | Committete Änderungen bleiben dauerhaft gespeichert |
+Jede transaktionale Storage-Engine (wie InnoDB) muss die vier ACID-Eigenschaften garantieren, um Datensicherheit zu gewährleisten.
 
-### Atomarität
-Alle SQL-Anweisungen einer Transaktion gelten als **eine unteilbare Einheit**. Tritt ein Fehler auf, werden bereits durchgeführte Operationen **nicht wirksam**.
-
-### Konsistenz
-Nach dem Commit befindet sich die Datenbank in einem **konsistenten Zustand**: alle Integritätsbedingungen, Schlüssel- und Fremdschlüsselverknüpfungen sind erfüllt.
-
-### Isoliertheit
-Durch Sperr-Konzepte wird sichergestellt, dass **parallele Transaktionen sich nicht gegenseitig stören**. Sperrungen sollen so kurz wie möglich gehalten werden.
-
-### Dauerhaftigkeit
-Nach `COMMIT` sind alle Änderungen **persistent auf der Festplatte** gespeichert – auch nach einem Stromausfall.
+| Buchstabe | Eigenschaft | Bedeutung & Technische Umsetzung |
+|:---:|-------------|----------------------------------|
+| **A** | **Atomicity** (Atomarität) | **Ganz oder gar nicht.** Entweder werden alle Anweisungen einer Transaktion erfolgreich ausgeführt oder keine einzige. <br>*Umsetzung:* Das **Undo-Log** speichert die Umkehroperationen, um bei einem Fehler oder `ROLLBACK` den Ursprungszustand wiederherzustellen. |
+| **C** | **Consistency** (Konsistenz) | **Integrität erhalten.** Vor und nach einer Transaktion muss die Datenbank in einem konsistenten, gültigen Zustand sein. Alle Constraints (Fremdschlüssel, Primary Keys, CHECK-Klauseln) müssen erfüllt sein. |
+| **I** | **Isolation** (Isoliertheit) | **Ungestörte Parallelität.** Gleichzeitig ablaufende Transaktionen dürfen sich nicht gegenseitig beeinflussen. <br>*Umsetzung:* Durch **Sperrmechanismen (Locks)** und **MVCC** (Multi-Version Concurrency Control) sieht eine Transaktion Datenänderungen anderer, noch offener Transaktionen nicht. |
+| **D** | **Durability** (Dauerhaftigkeit) | **Dauerhafte Speicherung.** Sobald ein `COMMIT` erfolgreich bestätigt wurde, bleiben die Daten dauerhaft im System gespeichert, selbst bei einem plötzlichen Systemabsturz oder Stromausfall. <br>*Umsetzung:* Das **Redo-Log** (Write-Ahead Logging) schreibt Änderungen sofort sequentiell auf die Festplatte, bevor sie in die eigentlichen Datendateien übertragen werden. |
 
 ---
 
-## 4. Locking-Mechanismen
+### Transaktions-Isolationsstufen (Isolation Levels)
 
-### Übersicht
+Das SQL-Standard-Modell definiert vier Stufen der Isoliertheit, um unerwünschte Phänomene bei parallelen Zugriffen zu steuern:
 
-| Engine | Locking-Level | Beschreibung |
-|--------|--------------|--------------|
-| MyISAM | **Table-Level** | Ganze Tabelle wird gesperrt |
-| BDB | **Page-Level** | Ganze Speicherseite wird gesperrt |
-| Gemini | **Page-Level** | Ganze Speicherseite wird gesperrt |
-| InnoDB | **Row-Level** | Nur der betroffene Datensatz wird gesperrt |
+| Isolationsstufe | Dirty Read | Non-Repeatable Read | Phantom Read |
+|-----------------|:----------:|:-------------------:|:------------:|
+| **Read Uncommitted** | Ja | Ja | Ja |
+| **Read Committed** | Nein | Ja | Ja |
+| **Repeatable Read** (InnoDB-Default) | Nein | Nein | Nein (bei InnoDB durch Next-Key-Locks) |
+| **Serializable** | Nein | Nein | Nein |
 
-### InnoDB – Locking-Varianten
+*   **Dirty Read:** Eine Transaktion liest noch nicht committete (unbestätigte) Daten einer anderen Transaktion.
+*   **Non-Repeatable Read:** Werte ändern sich während einer Transaktion, weil ein anderer Client dazwischen committet.
+*   **Phantom Read:** Neue Zeilen tauchen unerwartet in Suchergebnissen auf, weil ein anderer Client Zeilen eingefügt hat.
 
-**(1) Auto Locking**  
-InnoDB sperrt alle durch `INSERT`, `UPDATE`, `DELETE` veränderten Datensätze automatisch mit einem **Exclusive Lock** bis zum Ende der Transaktion. Gewöhnliche `SELECT`s werden trotzdem sofort ausgeführt (können veraltete Daten liefern).
+---
+
+## 4. Sperrmechanismen (Locking)
+
+Um Datenintegrität bei parallelen Zugriffen zu garantieren, sperrt das DBMS betroffene Objekte.
+
+### Sperrstufen im Vergleich
+
+1.  **Table-Level-Locking (MyISAM):**
+    Sperrt bei einer Änderung die **gesamte Tabelle**. Liest ein Client, blockiert er alle Schreiber. Schreibt ein Client, blockiert er alle Leser und Schreiber.
+2.  **Row-Level-Locking (InnoDB):**
+    Sperrt ausschliesslich die **betroffenen Zeilen** (Datensätze). Andere Zeilen derselben Tabelle können von anderen Benutzern zeitgleich gelesen und modifiziert werden.
+
+---
+
+### Sperrtypen bei InnoDB
+
+*   **Shared Lock (S-Lock / Lesesperre):**
+    Erlaubt anderen Sessions das Lesen der gesperrten Zeile, verhindert jedoch jegliche Modifikation. Mehrere Clients können gleichzeitig ein S-Lock auf dieselbe Zeile halten.
+*   **Exclusive Lock (X-Lock / Schreibsperre):**
+    Verhindert, dass andere Sessions die Zeile lesen (mit Sperrwunsch) oder schreiben. Nur ein Client kann ein X-Lock halten.
+
+#### Explizites Sperren mit SQL:
 
 ```sql
--- Kein explizites LOCK nötig; INSERT/UPDATE/DELETE sperren automatisch
-BEGIN;
-UPDATE tbl_konto SET Saldo = Saldo - 500 WHERE id_k = 1;
--- Datensatz id_k=1 ist jetzt exklusiv gesperrt
-COMMIT;
-```
-
-**(2) SELECT … FOR UPDATE**  
-Datensätze bereits beim Lesen **exklusiv** sperren – sinnvoll, wenn man zuerst liest und dann schreibt.
-
-```sql
+-- 1. Schreibsperre erzwingen (Exclusive Lock)
+-- Nützlich, wenn man Daten liest und sie kurz darauf aktualisieren möchte.
 BEGIN;
 SELECT * FROM tbl_konto WHERE id_k = 1 FOR UPDATE;
--- Datensatz ist jetzt exklusiv gesperrt – andere Clients müssen warten
+-- Datensatz ist für andere gesperrt.
 UPDATE tbl_konto SET Saldo = Saldo - 100 WHERE id_k = 1;
-COMMIT;
-```
+COMMIT; -- Gibt die Sperre frei.
 
-**(3) SELECT … LOCK IN SHARE MODE**  
-Datensätze mit einem **Shared Lock** sperren: andere Clients können diese Datensätze auch lesen, aber nicht verändern.
-
-```sql
+-- 2. Lesesperre erzwingen (Shared Lock)
+-- Verhindert, dass andere die Daten ändern, während man sie analysiert.
 BEGIN;
 SELECT * FROM tbl_konto WHERE id_k = 1 LOCK IN SHARE MODE;
--- Datensatz ist mit Shared Lock belegt; UPDATE durch andere Clients blockiert
+-- Andere dürfen lesen, aber nicht schreiben.
 COMMIT;
 ```
 
-**(4) LOCK TABLE (MyISAM)**  
-Ganze Tabelle explizit sperren – sehr restriktiv, für InnoDB nicht empfohlen.
+---
 
-```sql
-LOCK TABLE tbl_konto WRITE;
--- ... Operationen ...
-UNLOCK TABLES;
+### Deadlocks (Verklemmungen)
+
+Ein **Deadlock** entsteht, wenn zwei Transaktionen gegenseitig auf Ressourcen warten, die von der jeweils anderen Transaktion gesperrt sind.
+
+```
+Transaktion 1                        Transaktion 2
+  |                                    |
+  |-- Lockt Zeile A                    |-- Lockt Zeile B
+  |                                    |
+  |-- Wartet auf Zeile B (blockiert)   |
+  |                                    |-- Wartet auf Zeile A (blockiert)
+  v                                    v
+  =========== DEADLOCK ERKANNT ===========
 ```
 
-### Deadlock-Erkennung
+#### Beispiel-Szenario:
+1.  **Tx1** sperrt Konto 1 (`FOR UPDATE`).
+2.  **Tx2** sperrt Konto 2 (`FOR UPDATE`).
+3.  **Tx1** versucht Konto 2 zu sperren $\rightarrow$ *Tx1 muss warten (blockiert)*.
+4.  **Tx2** versucht Konto 1 zu sperren $\rightarrow$ *Tx2 müsste warten (Deadlock!)*.
 
-InnoDB, BDB und Gemini erkennen **Deadlocks automatisch** und führen bei dem auslösenden Prozess ein `ROLLBACK` durch. Zur Diagnose:
+**Erkennung:**
+InnoDB erkennt diese zyklischen Abhängigkeiten **automatisch**. Es bricht eine der beiden Transaktionen ab, führt ein automatisches `ROLLBACK` durch und gibt die Sperren frei, sodass die andere Transaktion weiterarbeiten kann.
 
 ```sql
+-- Letzte Deadlock-Informationen im Server abfragen
 SHOW ENGINE INNODB STATUS;
 ```
 
@@ -187,105 +203,92 @@ SHOW ENGINE INNODB STATUS;
 ## 5. Checkpoint-Fragen
 
 ### 1. Wie bezeichnet man die Ausführung mehrerer DB-Operationen in einem einzigen Schritt?
+* [ ] Referentielle Integrität
+* [ ] Replikation
+* [x] Transaktion
+* [ ] Storage Procedure
 
-- [ ] Referentielle Integrität
-- [ ] Replikation
-- [x] Transaktion
-- [ ] Storage Procedure
-
-> Mehrere SQL-Befehle werden als atomare Einheit ("ganz oder gar nicht") ausgeführt – das ist eine **Transaktion**.
+> **Erklärung:**
+> Eine **Transaktion** ist eine logische Einheit, die mehrere SQL-Statements kapselt und dem Prinzip "alles oder nichts" unterliegt.
 
 ---
 
 ### 2. Warum sollen Locks möglichst schnell freigegeben werden?
+* [ ] damit das DBMS nicht zu stark belastet wird
+* [x] damit andere DB-Anwender nicht lange warten müssen
+* [ ] damit niemand die Daten ändern kann
+* [x] damit möglichst viele Benutzer gleichzeitig auf die DB zugreifen können
 
-- [ ] damit das DBMS nicht zu stark belastet wird
-- [x] damit andere DB-Anwender nicht lange warten müssen
-- [ ] damit niemand die Daten ändern kann
-- [x] damit möglichst viele Benutzer gleichzeitig auf die DB zugreifen können
-
-> Locks blockieren andere Clients. Je kürzer ein Lock gehalten wird, desto besser die Parallelität und Performance.
+> **Erklärung:**
+> Sperren schränken den gleichzeitigen Zugriff ein. Um Wartezeiten (Sperrkonflikte) zu minimieren und die Durchsatzrate (Parallelität) des Systems hochzuhalten, müssen Transaktionen so kurz wie möglich gehalten werden.
 
 ---
 
 ### 3. Welches ist das Standard-Tabellenformat von MySQL (MariaDB)?
+* [ ] InnoDB
+* [x] MyISAM
+* [ ] ARIA
+* [ ] ISAM
 
-- [ ] InnoDB
-- [x] MyISAM
-- [ ] ARIA
-- [ ] ISAM
-
-> **MyISAM** ist der historische Standard. In neueren MariaDB-Versionen (ab 10.x) ist **InnoDB** teils Standard – aber im TBZ-Kontext (XAMPP/MariaDB 10.4) gilt MyISAM als Standardformat.
+> **Erklärung:**
+> Historisch war **MyISAM** das Standardformat von MySQL. In modernen Versionen von MariaDB und MySQL hat sich **InnoDB** als Standard etabliert. In älteren Lehrmitteln und Standard-XAMPP-Konfigurationen wird MyISAM jedoch oft noch als historischer Standard betitelt.
 
 ---
 
 ### 4. Wann verwenden Sie das InnoDB-Tabellenformat?
+* [ ] wenn möglichst schnell auf die Daten zugegriffen werden muss
+* [x] wenn auf gar keinen Fall ein Datenverlust vorkommen darf
+* [x] wenn viele Benutzer gleichzeitig Daten ändern
+* [ ] wenn bei sehr vielen Daten nicht beliebig viel Speicherplatz vorhanden ist
 
-- [ ] wenn möglichst schnell auf die Daten zugegriffen werden muss
-- [x] wenn auf gar keinen Fall ein Datenverlust vorkommen darf
-- [x] wenn viele Benutzer gleichzeitig Daten ändern
-- [ ] wenn bei sehr vielen Daten nicht beliebig viel Speicherplatz vorhanden ist
-
-> InnoDB bietet Transaktionen, Crash-Recovery und Row-Level-Locking → ideal für Sicherheit und Mehrbenutzerbetrieb. MyISAM ist schneller und speichersparender.
+> **Erklärung:**
+> InnoDB ist die Engine der Wahl bei **Mehrbenutzerbetrieb** (dank Row-Level-Locking) und bei **sicherheitskritischen Daten** (ACID, Crash-Recovery). MyISAM bietet zwar bei reinem Lesezugriff leichten Geschwindigkeitsvorteil und spart Festplattenplatz, bietet jedoch keine Transaktionssicherheit.
 
 ---
 
 ### 5. Was trifft auf den sog. Tablespace zu?
+* [ ] Datei, welche die Daten der entsprechenden Tabelle enthält (`*.MYD`)
+* [ ] Datei, welche Beschreibung, Daten und Indexe einer Tabelle enthält
+* [x] Datei, welche alle InnoDB-Tabellen enthält (virtueller Speicher)
+* [x] wird nach Erreichen von x MB automatisch vergrössert (falls autoextend eingeschaltet)
 
-- [ ] Datei, welche die Daten der entsprechenden Tabelle enthält (`*.MYD`)
-- [ ] Datei, welche Beschreibung, Daten und Indexe einer Tabelle enthält
-- [x] Datei, welche alle InnoDB-Tabellen enthält (virtueller Speicher)
-- [x] wird nach Erreichen von x MB automatisch vergrössert (falls autoextend eingeschaltet)
-
-> Der Tablespace (`ibdata1`) ist der zentrale virtuelle Speicher für alle InnoDB-Tabellen und wächst automatisch in 8-MB-Schritten, wenn `autoextend` aktiv ist.
+> **Erklärung:**
+> Der Tablespace (`ibdata1` beim globalen Modell) ist die Speicherdatei für alle InnoDB-Tabellenstrukturen und Daten. Ist `autoextend` aktiviert, vergrössert sich die Datei bei Bedarf dynamisch.
 
 ---
 
 ### 6. Mit welchen Befehlen werden Transaktionen gesteuert?
-
-- [ ] UNLOCK TABLES;
-- [x] COMMIT; oder ROLLBACK;
-- [ ] ALTER TABLE ... TYPE= ...;
-- [x] BEGIN; oder START TRANSACTION;
-
-> `BEGIN`/`START TRANSACTION` startet eine Transaktion. `COMMIT` speichert sie dauerhaft, `ROLLBACK` macht sie rückgängig.
+* [ ] UNLOCK TABLES;
+* [x] COMMIT; oder ROLLBACK;
+* [ ] ALTER TABLE ... TYPE= ...;
+* [x] BEGIN; oder START TRANSACTION;
 
 ---
 
 ### 7. Was trifft auf das Locking bei Transaktionen auf InnoDB-Tabellen zu?
-
-- [ ] in Transaktionen kommt Table locking zur Anwendung
-- [x] es wird Row locking angewendet
-- [ ] es werden alle Datensätze der entsprechenden Tabelle(n) gesperrt
-- [x] es werden nur die gerade bearbeiteten Datensätze gesperrt
-
-> InnoDB verwendet **Row-Level-Locking**: Nur die tatsächlich veränderten Datensätze werden gesperrt. Andere Datensätze in derselben Tabelle bleiben für andere Clients zugänglich.
+* [ ] in Transaktionen kommt Table locking zur Anwendung
+* [x] es wird Row locking angewendet
+* [ ] es werden alle Datensätze der entsprechenden Tabelle(n) gesperrt
+* [x] es werden nur die gerade bearbeiteten Datensätze gesperrt
 
 ---
 
 ### 8. Welches sind Vorteile der InnoDB-Tabellen gegenüber MyISAM-Tabellen?
-
-- **Transaktionsunterstützung**: Änderungen können mit `ROLLBACK` rückgängig gemacht werden (ACID).
-- **Referentielle Integrität**: Foreign Keys werden erzwungen – verwaiste Datensätze sind ausgeschlossen.
-- **Row-Level-Locking**: Andere Clients werden weniger blockiert als bei Table-Level-Locking.
-- **Automatisches Crash-Recovery**: Nach einem Absturz stellt InnoDB den letzten konsistenten Zustand automatisch wieder her.
+1.  **Transaktionssicherheit (ACID):** Schutz vor unvollständigen Schreibvorgängen.
+2.  **Referentielle Integrität:** Fremdschlüsselprüfung verhindert inkonsistente Verknüpfungen.
+3.  **Fehlertoleranz (Crash-Recovery):** Automatische Rekonstruktion ungeschriebener Daten nach einem Systemabsturz über das Redo-Log.
+4.  **Hohe Nebenläufigkeit:** Row-Level-Locking verhindert, dass Leser und Schreiber sich gegenseitig auf Tabellenebene blockieren.
 
 ---
 
 ### 9. In welchen Dateien wird die MyISAM-Tabelle KUNDEN gespeichert?
-
-| Datei | Inhalt |
-|-------|--------|
-| `KUNDEN.FRM` | Tabellenbeschreibung (Struktur, Spaltentypen) |
-| `KUNDEN.MYD` | Eigentliche Daten (My**D**ata) |
-| `KUNDEN.MYI` | Indexe (My**I**ndex) |
-
-> Alle drei Dateien liegen im Datenbankverzeichnis (z.B. `C:\xampp\mysql\data\datenbankname\`).
+*   `KUNDEN.FRM`: Enthält die Tabellendefinition (Schema und Spaltendefinitionen).
+*   `KUNDEN.MYD` (MyData): Enthält die reinen Datensätze.
+*   `KUNDEN.MYI` (MyIndex): Speichert die Indexbäume für schnelle Suchanfragen.
 
 ---
 
 ### 10. Notieren Sie den SQL-Befehl, der die InnoDB-Tabelle BESTELLUNGEN erstellt.
-
 ```sql
 CREATE TABLE BESTELLUNGEN (
     bestell_id   INT            NOT NULL AUTO_INCREMENT,
@@ -296,73 +299,44 @@ CREATE TABLE BESTELLUNGEN (
 ) ENGINE = InnoDB;
 ```
 
-> Der entscheidende Teil ist `ENGINE = InnoDB` am Ende des `CREATE TABLE`-Befehls.
-
 ---
 
 ### 11. Welche Locking-Art ist a) bei MyISAM-Tabellen b) bei InnoDB-Tabellen möglich?
-
-**a) MyISAM – Table-Level-Locking**  
-Die gesamte Tabelle wird gesperrt. Kein anderer Client kann gleichzeitig lesen oder schreiben (bei WRITE-Lock). Einfach, aber wenig effizient bei vielen gleichzeitigen Zugriffen.
-
-**b) InnoDB – Row-Level-Locking**  
-Nur die tatsächlich bearbeiteten Datensätze werden gesperrt. Andere Datensätze in der gleichen Tabelle sind weiterhin zugänglich. Deutlich effizienter im Mehrbenutzerbetrieb.
+*   **a) MyISAM:** Nur **Table-Level-Locking** (Sperrung der gesamten Tabelle bei Schreiboperationen).
+*   **b) InnoDB:** Hauptsächlich **Row-Level-Locking** (Sperrung einzelner Zeilen). Das Sperren der ganzen Tabelle (`Table Lock`) ist optional ebenfalls möglich (z. B. durch `LOCK TABLES`), wird aber selten empfohlen.
 
 ---
 
 ### 12. Beschreiben Sie den Begriff Datenbank-Transaktion!
-
-Eine **Datenbank-Transaktion** ist eine Gruppe von SQL-Anweisungen, die als eine unteilbare Einheit behandelt wird. Sie beginnt mit `BEGIN` und endet entweder mit `COMMIT` (alle Änderungen werden dauerhaft gespeichert) oder `ROLLBACK` (alle Änderungen werden verworfen).
-
-Das Prinzip lautet: **ganz oder gar nicht** – entweder werden alle Operationen vollständig ausgeführt, oder keine. So wird verhindert, dass die Datenbank in einem inkonsistenten Halbzustand bleibt (z.B. wenn Geld abgebucht, aber nicht gutgeschrieben wird).
+Eine Datenbank-Transaktion ist eine logische Folge von einer oder mehreren SQL-Anweisungen, die als atomare (unteilbare) Einheit ausgeführt wird. Sie überführt die Datenbank von einem konsistenten Zustand in einen neuen konsistenten Zustand. Schlägt ein Befehl fehl, macht das System alle Änderungen über ein `ROLLBACK` rückgängig.
 
 ---
 
 ### 13. Beschreiben Sie die Bedeutung von I in der Abkürzung ACID.
-
-**I = Isoliertheit (Isolation)**
-
-Parallele Transaktionen verschiedener Clients dürfen sich **nicht gegenseitig beeinflussen**. Jede Transaktion läuft so ab, als wäre sie die einzige aktive Transaktion im System.
-
-Technisch wird dies durch Sperrmechanismen (Locks), Arbeitskopien und Timestamps sichergestellt: Eine Transaktion kann keine Daten sehen oder verändern, die durch eine andere, noch laufende Transaktion gesperrt sind. Die Sperrungen sollen dabei so kurz und begrenzt wie möglich gehalten werden, um die Performance anderer Operationen nicht unnötig zu beeinträchtigen.
+**I = Isolation (Isoliertheit):**
+Stellt sicher, dass parallel ausgeführte Transaktionen so isoliert voneinander ablaufen, als ob sie nacheinander ausgeführt würden. Keine Transaktion darf unfertige Zwischenstände einer anderen Transaktion sehen. Das schützt vor Fehlberechnungen durch parallele Datenänderungen.
 
 ---
 
 ### 14. Wie stellen Transaktionen bei einem DB-Server-Crash die Datenkonsistenz sicher?
-
-InnoDB schreibt alle Transaktionsänderungen **zuerst in ein Transaktions-Log** (Redo Log: `ib_logfile0`, `ib_logfile1`), bevor sie in den eigentlichen Tablespace geschrieben werden.
-
-Beim nächsten Start nach einem Absturz führt InnoDB automatisch ein **Crash-Recovery** durch:
-
-1. Das Redo Log wird ausgelesen.
-2. Alle Transaktionen, die vor dem Absturz vollständig `COMMIT`et wurden, werden wiederhergestellt.
-3. Alle Transaktionen, die beim Absturz noch offen waren (kein `COMMIT`), werden automatisch zurückgerollt (`ROLLBACK`).
-
-Das garantiert, dass die Datenbank nach dem Neustart wieder in einem **konsistenten Zustand** ist.
+Durch das Prinzip des **Write-Ahead Loggings**. InnoDB schreibt alle Transaktionsschritte sequentiell in das **Redo-Log** auf dem Datenträger, bevor die eigentliche Tabellendatei im Tablespace geändert wird. Nach einem Absturz liest der Server beim Start das Redo-Log:
+*   Bereits mit `COMMIT` bestätigte Transaktionen werden nachgeschrieben (Redo/Roll-Forward).
+*   Unfertige Transaktionen ohne Commit werden anhand der Daten im **Undo-Log** zurückgerollt (Undo/Rollback).
 
 ---
 
 ### 15. Mit welcher Locking-Art wartet ein SELECT-Befehl, bis alle Transaktionen auf die angeforderte Tabelle entsperrt sind?
-
-**`SELECT ... LOCK IN SHARE MODE`**
-
-Dieser Befehl wartet, bis alle noch offenen **Exclusive Locks** auf die betroffenen Datensätze aufgelöst sind. Anschliessend legt er selbst einen **Shared Lock** auf die gefundenen Datensätze. Das bedeutet: andere Clients können diese Datensätze ebenfalls lesen (mit Shared Lock), aber nicht mehr verändern.
-
+Mit einem **Shared Lock**, initiiert durch:
 ```sql
-BEGIN;
-SELECT * FROM tbl_konto WHERE id_k = 1 LOCK IN SHARE MODE;
--- Wartet bis alle Exclusive Locks weg sind, dann Shared Lock
-COMMIT;
+SELECT * FROM tabelle LOCK IN SHARE MODE;
 ```
+Dieser Befehl fordert eine Lesesperre an und muss warten, bis alle exklusiven Schreibsperren (X-Locks) anderer Transaktionen auf den betroffenen Zeilen freigegeben wurden.
 
 ---
 
 ### 16. Wie muss Autocommit gesetzt werden, damit jeder SQL-Befehl zu einer Transaktion gehört und explizit mit COMMIT abgeschlossen werden muss?
-
+Der Autocommit-Modus muss deaktiviert werden:
 ```sql
 SET AUTOCOMMIT = 0;
 ```
-
-Mit `AUTOCOMMIT = 0` gehört jede SQL-Anweisung automatisch zur laufenden Transaktion. Änderungen werden erst dann dauerhaft gespeichert, wenn man explizit `COMMIT` ausführt. Mit `ROLLBACK` können alle Änderungen seit dem letzten `COMMIT` verworfen werden.
-
-> Bei `AUTOCOMMIT = 1` (Standard) wird jede einzelne Anweisung sofort als eigene Transaktion ausgeführt und committed.
+Ab diesem Zeitpunkt startet das DBMS bei der ersten Datenänderung implizit eine neue Transaktion, die erst durch ein manuelles `COMMIT` dauerhaft gespeichert oder durch `ROLLBACK` verworfen wird.
