@@ -1,0 +1,51 @@
+# =============================================================
+# my.ini / my.cnf  – LOKALE MariaDB 10.4 (XAMPP)
+# Pfad: C:\xampp\mysql\bin\my.ini
+# Autor: Noah Bachmann | TBZ M141 LB3
+# =============================================================
+# Zweck: Lokales DBMS für Entwicklung und Tests (MS B).
+#        Keine SSL-Pflicht, aber Charset + InnoDB-Defaults
+#        auf Aiven-kompatiblen Stand angehoben.
+# =============================================================
+
+[mysqld]
+# --- Verzeichnisse (XAMPP-Standard) ---
+basedir                  = "C:/xampp/mysql/"
+datadir                  = "C:/xampp/mysql/data/"
+tmpdir                   = "C:/xampp/tmp/"
+
+# --- Netzwerk ---
+port                     = 3306
+bind-address             = 127.0.0.1          # lokal only
+max_connections          = 50
+skip-name-resolve
+
+# --- Zeichensatz / Locale ---
+character-set-server     = utf8mb4
+collation-server         = utf8mb4_unicode_ci
+default-time-zone        = '+01:00'
+
+# --- InnoDB ---
+default-storage-engine   = InnoDB
+innodb_buffer_pool_size  = 256M               # auf 16-GB-Laptop OK
+innodb_file_per_table    = 1
+innodb_print_all_deadlocks = 1
+innodb_flush_log_at_trx_commit = 2            # Dev-Default, weniger fsync
+
+# --- Logging / Audit ---
+log_error                = "C:/xampp/mysql/data/mysql_error.log"
+slow_query_log           = 1
+slow_query_log_file      = "C:/xampp/mysql/data/slow.log"
+long_query_time          = 1.0
+log_queries_not_using_indexes = 1
+
+# --- LOAD DATA LOCAL ---
+local_infile             = 1                  # nötig für 03_backpacker_import.sql
+
+# --- SQL_MODE (strikter als XAMPP-Default) ---
+sql_mode = STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+
+[client]
+default-character-set    = utf8mb4
+port                     = 3306
+host                     = 127.0.0.1

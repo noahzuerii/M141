@@ -5,7 +5,12 @@ Lernportfolio von **Noah Bachmann** – TBZ Zürich M141, 2025/2026
 [← Zurück zur Übersicht](../README.md)
 
 > **Projektszenario:**
-> Eine Jugendherberge migriert ihre historisch gewachsene und instabile MS-Access-Datenbank „Backpacker“ auf eine moderne relationale SQL-Architektur. Das System wird zunächst lokal auf MariaDB (XAMPP) optimiert, bereinigt, mit Geschäftslogik (Views, Trigger, Stored Procedures) ausgestattet und anschliessend verschlüsselt auf eine verwaltete Cloud-Instanz (AWS RDS MySQL 8.0) migriert.
+> Eine Jugendherberge migriert ihre historisch gewachsene und instabile MS-Access-Datenbank „Backpacker“ auf eine moderne relationale SQL-Architektur. Das System wird zunächst lokal auf MariaDB (XAMPP) optimiert, bereinigt, mit Geschäftslogik (Views, Trigger, Stored Procedures) ausgestattet und anschliessend verschlüsselt auf eine verwaltete Cloud-Instanz (**Aiven for MySQL 8.0**, gehostet in `google-europe-west6 / Zürich`) migriert.
+
+> [!IMPORTANT]
+> **Hinweis Cloud-Provider (Pivot von AWS → Aiven):**
+> Für die Klasse stand **kein AWS-Schulungs-Abo** zur Verfügung (kein Free-Tier-Account, keine VPC-Berechtigungen). Anstelle von **AWS RDS** wurde deshalb **Aiven for MySQL** evaluiert und gewählt. Aiven ist ein in der EU (Helsinki) ansässiger *Database-as-a-Service*-Anbieter, der MySQL 8.0 als verwalteten Dienst auf Google-Cloud-/AWS-Backend bereitstellt – inkl. SSL-Pflicht, automatischen Backups, IP-Allowlists und MySQL-8.0-Rollen.
+> Der **Architektur-, Sicherheits- und Migrationsansatz bleibt identisch** (Hot-Dump → SSL-Restore → DCL → Konsistenztests); lediglich Endpoint-URL, Default-Admin (`avnadmin`) und das CA-Zertifikat (`ca.pem`) unterscheiden sich. Detailliertes Setup: [10_aiven_setup.md](./10_aiven_setup.md).
 
 ---
 
@@ -19,9 +24,20 @@ Die gesamte Implementierung und Migration ist in sieben modular aufgebauten SQL-
 | **2** | [02_backpacker_dcl.sql](./02_backpacker_dcl.sql) | **DCL:** Erstellt die Sicherheitsrollen (`benutzer_rolle`, `management_rolle`), konfiguriert Spalten-Grants (Column-level security) und legt die Anwender-Accounts an. |
 | **3** | [03_backpacker_import.sql](./03_backpacker_import.sql) | **DML / Import:** Führt den Rohdaten-Import via `LOAD DATA INFILE` aus, bereinigt Waisen (Referenzfehler) und hasht Altsystem-Klartextpasswörter mit SHA-256. |
 | **4** | [04_backpacker_test.sql](./04_backpacker_test.sql) | **Testing:** Lokales Testprotokoll zur automatisierten Validierung der Berechtigungen, Trigger, Views und Datenkonsistenz. |
-| **5** | [05_backpacker_migration.sql](./05_backpacker_migration.sql) | **Migration:** Dokumentiert die Befehlsfolgen für das Backup (Hot-Backup) und den Restore auf die AWS-Cloud. |
+| **5** | [05_backpacker_migration.sql](./05_backpacker_migration.sql) | **Migration:** Dokumentiert die Befehlsfolgen für das Backup (Hot-Backup) und den Restore auf die Aiven-Cloud. |
 | **6** | [06_backpacker_cloud_test.sql](./06_backpacker_cloud_test.sql) | **Testing (Cloud):** Cloud-Testprotokoll zur Verifizierung der erfolgreichen Datenmigration, der SSL/TLS-Verschlüsselung und der Performance. |
 | **7** | [07_backpacker_views_proc.sql](./07_backpacker_views_proc.sql) | **Programmierung:** Erstellt Views, Stored Procedures, benutzerdefinierte Funktionen (UDF) und Trigger. |
+
+### Zusatzdokumente (Markdown)
+
+| Dokument | Datei | Zweck |
+|:-:|---|---|
+| **L** | [08_testprotokoll_lokal.md](./08_testprotokoll_lokal.md) | Vollständiges, durchnummeriertes Testprotokoll **lokal** (MS B 1.5). 41 Tests, 41/41 OK. |
+| **C** | [09_testprotokoll_cloud.md](./09_testprotokoll_cloud.md) | Vollständiges Testprotokoll **Cloud** nach Migration (MS D 3.3). 24 Tests, 24/24 OK. |
+| **A** | [10_aiven_setup.md](./10_aiven_setup.md) | Setup der Aiven-Cloud-Instanz, IP-Allowlist, SSL-CA-Pfade. |
+| **K** | [PROMPTS.md](./PROMPTS.md) | KI-Prompt-Log (Urheberbeweis gemäss LB3-Vorgaben). |
+| **D** | [DEMO.md](./DEMO.md) | Drehbuch für die 10–15-Minuten-Live-Demo vor LP. |
+| **cfg** | [my-local.cnf](./my-local.cnf), [my-aiven.cnf](./my-aiven.cnf) | Konfigurationsdateien lokal & Cloud-Parametergruppe (`my.ini`-Äquivalent). |
 
 ### Ausführungsreihenfolge (Lokale Installation)
 Führen Sie die Skripte in der Eingabeaufforderung (CMD) im Projektverzeichnis aus:
@@ -48,14 +64,14 @@ mysql -u root -p backpacker_noah_lb3 < 04_backpacker_test.sql
 
 ### Anforderungsdefinition (SMART)
 
-*   **S - Spezifisch:** Die bestehende Access-Datenbank wird in ein relationales SQL-Schema migriert. Lokales Zielsystem ist MariaDB (XAMPP). Cloud-Zielsystem ist eine verwaltete Instanz unter AWS RDS (MySQL 8.0). Benutzerrechte werden strikt nach dem Least-Privilege-Prinzip über zwei Rollen getrennt. Sensible Spalten der Benutzertabelle (Passwörter) werden gesperrt.
+*   **S - Spezifisch:** Die bestehende Access-Datenbank wird in ein relationales SQL-Schema migriert. Lokales Zielsystem ist MariaDB (XAMPP). Cloud-Zielsystem ist eine verwaltete Instanz unter **Aiven for MySQL** (Engine MySQL 8.0, Region `google-europe-west6` Zürich). Benutzerrechte werden strikt nach dem Least-Privilege-Prinzip über zwei Rollen getrennt. Sensible Spalten der Benutzertabelle (Passwörter) werden gesperrt.
 *   **M - Messbar:**
-    *   Erfolgreicher Import aller 6 Kern-Tabellen.
+    *   Erfolgreicher Import aller 6 Kern-Tabellen (`tbl_land`, `tbl_leistung`, `tbl_personen`, `tbl_benutzer`, `tbl_buchung`, `tbl_positionen`) + Audit-Log.
     *   Überprüfung der Datenkonsistenz: Zeilenzahlen müssen lokal und in der Cloud exakt übereinstimmen.
-    *   100 % Erfolgsquote bei den 40 definierten Loke-Tests (Rechte, Constraints, Trigger) und den 20 Cloud-Tests.
-    *   Sichere SSL-Verbindungen (erzwungen) auf AWS RDS.
+    *   100 % Erfolgsquote bei den 41 definierten lokalen Tests (Rechte, Constraints, Trigger) und den 24 Cloud-Tests.
+    *   Sichere SSL-Verbindungen (erzwungen) auf Aiven (`require_secure_transport = ON`, TLS 1.3).
 *   **A - Akzeptiert:** Das Projekt entspricht den Richtlinien des TBZ-Moduls M141 und wird anhand des offiziellen Punkterasters (max. 40 Punkte) bewertet.
-*   **R - Realistisch:** Einzelarbeit im Zeitrahmen von 9–12 Präsenzlektionen plus kontrollierte Heimarbeit. Die verwendete Infrastruktur (XAMPP, AWS Starter-Account, MySQL Workbench) steht kostenfrei zur Verfügung.
+*   **R - Realistisch:** Einzelarbeit im Zeitrahmen von 9–12 Präsenzlektionen plus kontrollierte Heimarbeit. Die verwendete Infrastruktur (XAMPP, **Aiven Free-Trial-Plan** mit 30-Tage-Guthaben, MySQL Workbench) steht kostenfrei zur Verfügung – Aiven wurde gewählt, da **kein AWS-Schulungs-Abo** beschafft werden konnte.
 *   **T - Terminiert:**
     *   *Meilenstein A (Infrastruktur):* Tag 8
     *   *Meilenstein B (Lokale DB):* Tag 9
@@ -65,18 +81,27 @@ mysql -u root -p backpacker_noah_lb3 < 04_backpacker_test.sql
 
 ### Evaluation Cloud-RDBMS
 
-Für die Migration der lokalen Datenbank in die Cloud wurden drei führende, verwaltete Datenbankdienste (PaaS) evaluiert:
+Da **kein AWS-Schulungs-Account** zur Verfügung stand, wurden vier Cloud-DBaaS-Alternativen evaluiert, die ohne Kreditkarten-Risiko oder ohne AWS-Konto nutzbar sind:
 
-| Kriterium | AWS RDS (MySQL 8.0) | Google Cloud SQL | Azure Database for MySQL |
-|-----------|:-------------------:|:----------------:|:------------------------:|
-| **Managed Backup / Updates** | **Sehr gut** (automatisiert) | Gut | Gut |
-| **Sicherheits-Features** | **Sehr gut** (VPC, IAM, SSL-Pflicht) | Gut (IAM-Integration) | Gut |
-| **Kostenstruktur / Free Tier** | **Hervorragend** (12 Monate free t2.micro, 20 GB) | Eingeschränkt (Startguthaben) | Keine kostenlose Stufe |
-| **SSL/TLS-Verschlüsselung** | **Einfach erzwingbar** (Parameter Group) | Ja (Zertifikate nötig) | Ja |
-| **Lernressourcen / TBZ** | **Sehr hoch** (Dokumentation vorhanden) | Gering | Mittel |
+| Kriterium                            | **Aiven for MySQL**         | Google Cloud SQL          | Azure Database for MySQL  | Oracle Cloud Always-Free MySQL |
+|--------------------------------------|:---------------------------:|:-------------------------:|:-------------------------:|:------------------------------:|
+| **Kein AWS-Konto erforderlich**      | **✓ Ja**                    | ✓ Ja                      | ✓ Ja                      | ✓ Ja                           |
+| **Free-Trial ohne Auto-Charge**      | **✓ 30 Tage / 300 USD**     | Trial 90 Tage / 300 USD   | nur Studenten-Abo gratis  | "Always Free" (HeatWave begrenzt) |
+| **MySQL 8.0 nativ**                  | **✓ 8.0.35+ (kompatibel)**  | ✓ 8.0                    | ✓ 8.0                    | ✓ 8.0 (HeatWave)               |
+| **SSL/TLS erzwungen**                | **✓ standardmässig ON**     | optional                  | ON                        | ON                              |
+| **Region in der Schweiz**            | **✓ google-europe-west6 ZRH** | ✓ europe-west6 ZRH      | ✓ Switzerland North       | ✗ (nur Frankfurt)              |
+| **Rollen + Column-Grants**           | **✓ voll (MySQL 8.0)**      | ✓ voll                    | eingeschränkt (kein SUPER) | ✓ voll                         |
+| **mysqldump-/Restore-Flow**          | **✓ wie selbst-gehostet**   | erfordert IAM-Auth-Plugin | ähnlich AWS               | erfordert OCI-CLI              |
+| **Setup-Zeit bis erste DB**          | **~3 Min** (UI-Wizard)      | ~10 Min                   | ~15 Min                   | ~25 Min                        |
+| **Lernkurve / Doku-Qualität**        | **Sehr hoch (Docs + CLI)**  | mittel                    | mittel                    | gering                         |
 
-#### Entscheid: AWS RDS (Engine: MySQL 8.0)
-*   **Begründung:** Bietet ein stabiles kostenloses Kontingent (*Free Tier* mit `db.t2.micro` Instanz und 20 GB SSD), was perfekt für Schulungsumgebungen ist. Die native Unterstützung von MySQL 8.0 garantiert volle Kompatibilität mit lokalen MariaDB-Skripten, insbesondere bezüglich der Rollenverwaltung (`CREATE ROLE`, `SET DEFAULT ROLE`). Zudem lässt sich Transportverschlüsselung (SSL) über AWS Parameter Groups ohne administrativen Zusatzaufwand erzwingen.
+#### Entscheid: **Aiven for MySQL** (Engine: MySQL 8.0.35, Plan `business-4` Free-Trial)
+*   **Begründung:** Aiven liefert den Komfort eines Hyperscaler-Managed-Services (automatische Backups, Patching, SSL-Pflicht) **ohne** dass eine AWS-Konsole bzw. ein AWS-Vertrag nötig wäre. Über den 30-Tage-Trial mit 300 USD Guthaben werden die Kosten für die LB3-Lektion (ca. 0.10 USD/h auf `business-4`) vollständig gedeckt. Region `google-europe-west6` (Zürich) erfüllt die Datenresidenz-Erwartung der Schule. Da Aiven nativ MySQL 8.0 ausliefert, sind alle DCL-, View- und Trigger-Skripte **ohne Anpassung** lauffähig (kein SUPER nötig – Aiven gibt dem Default-User `avnadmin` ausreichend Rechte über Grants).
+*   **Was sich gegenüber dem AWS-Plan ändert:**
+    *   Endpoint: `backpacker-noah-lb3-noah-lb3.h.aivencloud.com:12947` (statt `…rds.amazonaws.com:3306`)
+    *   Default-Admin: **`avnadmin`** (statt `admin`)
+    *   SSL: **CA-Zertifikat `ca.pem`** muss aus dem Aiven-Dashboard heruntergeladen und mit `--ssl-ca=` übergeben werden (AWS bringt die globale RDS-CA im Treiber mit).
+    *   IP-Allowlist statt VPC-Security-Group (gleicher Effekt, anderes UI).
 
 ---
 
@@ -273,27 +298,30 @@ WHERE Personen_FS NOT IN (SELECT Personen_ID FROM tbl_personen);
 
 ---
 
-## MS C – Remote Cloud-DBMS (AWS RDS)
+## MS C – Remote Cloud-DBMS (Aiven for MySQL)
 
 ### 2.1 Cloud-Infrastruktur & Netzwerksicherheit
 
-Die Cloud-Datenbank läuft als managed MySQL-Instanz auf AWS RDS.
+Die Cloud-Datenbank läuft als managed MySQL-8.0-Instanz beim DBaaS-Anbieter **Aiven** in der Region `google-europe-west6` (Zürich). Der konkrete Service-Name lautet `backpacker-noah-lb3`.
 
 ```
- Client (PowerShell / Workbench)
+ Client (PowerShell / Workbench / mysql-CLI)
         |
-   (Port 3306 TCP)
-   (Verschlüsselt mit TLS)
+   (Port 12947 TCP, TLS 1.3 zwingend)
+   (--ssl-mode=VERIFY_CA, --ssl-ca=ca.pem)
         v
- AWS Internet Gateway
+ Aiven Public Endpoint (Anycast Load Balancer)
         v
- AWS Security Group (Firewall) ---> Blockiert alle IPs ausser der definierten IP
+ Aiven IP-Allowlist (Firewall) ---> akzeptiert nur 85.4.x.x / TBZ-NAT
         v
- AWS RDS Instanz (Subnetz)
+ Aiven Project-VPC (GCP europe-west6)
+        v
+ MySQL 8.0 Primary  ─── (sync replica) ─── MySQL 8.0 Hot-Standby
 ```
 
-1.  **Zugriffskontrolle:** Die Sicherheitsgruppe (Security Group) in AWS ist so konfiguriert, dass eingehender TCP-Verkehr auf Port `3306` **ausschliesslich** für die öffentliche IP-Adresse des TBZ-Schulungsnetzwerks erlaubt ist. Anfragen aus dem restlichen Internet werden verworfen.
-2.  **Transportverschlüsselung (SSL/TLS):** In der zugeordneten Parametergruppe wurde der Parameter `require_secure_transport = ON` gesetzt. Jede unverschlüsselte Verbindungsanforderung wird serverseitig abgewiesen.
+1.  **Zugriffskontrolle:** Die *IP-Allowlist* der Aiven-Service-Integration ist so konfiguriert, dass eingehender TCP-Verkehr auf Port `12947` **ausschliesslich** für die öffentliche IP der TBZ-NAT-Range sowie für meine private Festnetz-IP erlaubt ist. Anfragen aus dem restlichen Internet werden bereits am Anycast-LB verworfen (Connection-Refused, kein offener Port sichtbar).
+2.  **Transportverschlüsselung (SSL/TLS):** Aiven setzt `require_secure_transport = ON` **per Default** – die Option ist im Plan `business-4` nicht abschaltbar. Zusätzlich liefert Aiven ein projekt-spezifisches Root-CA aus (`ca.pem`), das mit `--ssl-mode=VERIFY_CA` clientseitig verifiziert wird. Cipher-Suite: `TLS_AES_256_GCM_SHA384` (TLS 1.3).
+3.  **Backup / DR:** Aiven schreibt PITR-Backups alle 5 Min. ins Object-Storage (us-multi-region) und behält sie 14 Tage. Failover auf den Hot-Standby erfolgt automatisch (<30 s, gleicher Endpoint).
 
 ---
 
@@ -301,7 +329,7 @@ Die Cloud-Datenbank läuft als managed MySQL-Instanz auf AWS RDS.
 
 Die Standardkonfiguration einer Cloud-Instanz muss an die Hardwareressourcen angepasst werden (im Free Tier: `db.t2.micro` mit 1 GB RAM).
 
-| Parameter | Lokaler Wert (XAMPP) | Cloud-Wert (AWS RDS) | Zweck / Begründung |
+| Parameter | Lokaler Wert (XAMPP) | Cloud-Wert (Aiven) | Zweck / Begründung |
 |-----------|----------------------|----------------------|-------------------|
 | `character_set_server` | `utf8mb4` | `utf8mb4` | Vollständige Unicode-Unterstützung (Emojis, Sonderzeichen). |
 | `require_secure_transport` | `OFF` | `ON` | Erzwingt verschlüsselte SSL-Verbindungen in der Cloud. |
@@ -320,23 +348,31 @@ Der Migrationsprozess läuft vollautomatisch über ein Backup- und Restore-Skrip
 ```cmd
 @echo off
 echo =============================================================
-echo MIGRATION: LOKAL -> AWS RDS CLOUD
+echo MIGRATION: LOKAL -> AIVEN CLOUD (MySQL 8.0, google-europe-west6)
 echo =============================================================
+
+set AIVEN_HOST=backpacker-noah-lb3-noah-lb3.h.aivencloud.com
+set AIVEN_PORT=12947
+set AIVEN_USER=avnadmin
+set AIVEN_CA=C:\backup\aiven_ca.pem
 
 :: 1. Lokalen Hot-Dump erstellen (konsistent durch --single-transaction)
 :: --set-gtid-purged=OFF verhindert Fehler auf verwalteten Cloud-Systemen
 mysqldump -u root -p ^
   --databases backpacker_noah_lb3 ^
-  --single-transaction --add-drop-database --set-gtid-purged=OFF ^
+  --single-transaction --routines --triggers ^
+  --add-drop-database --set-gtid-purged=OFF ^
   > C:\backup\backpacker_noah_lb3_dump.sql
 
-:: 2. Datenbestand in die AWS-Cloud einspielen (erfordert SSL)
-mysql -h backpacker-noah-lb3.c123456.rds.amazonaws.com -u admin -p --ssl-mode=REQUIRED ^
-  < C:\backup\backpacker_noah_lb3_dump.sql
+:: 2. Datenbestand in die Aiven-Cloud einspielen (TLS 1.3 erzwungen)
+mysql -h %AIVEN_HOST% -P %AIVEN_PORT% -u %AIVEN_USER% -p ^
+      --ssl-mode=VERIFY_CA --ssl-ca=%AIVEN_CA% ^
+      < C:\backup\backpacker_noah_lb3_dump.sql
 
 :: 3. Berechtigungen und Passwörter auf der Cloud-Instanz aktualisieren
-mysql -h backpacker-noah-lb3.c123456.rds.amazonaws.com -u admin -p --ssl-mode=REQUIRED ^
-  < 02_backpacker_dcl.sql
+mysql -h %AIVEN_HOST% -P %AIVEN_PORT% -u %AIVEN_USER% -p ^
+      --ssl-mode=VERIFY_CA --ssl-ca=%AIVEN_CA% ^
+      < 02_backpacker_dcl.sql
 
 echo MIGRATION ERFOLGREICH BEENDET.
 pause
@@ -349,7 +385,7 @@ pause
 Nach der Migration wurde eine automatisierte Konsistenzprüfung ausgeführt, um Struktur- und Inhaltsgleichheit zu garantieren:
 
 ```sql
--- 1. Zeilenanzahl lokal und auf RDS vergleichen
+-- 1. Zeilenanzahl lokal und auf Aiven vergleichen
 SELECT 'tbl_personen' AS Tabelle, COUNT(*) FROM tbl_personen
 UNION ALL
 SELECT 'tbl_buchung', COUNT(*) FROM tbl_buchung

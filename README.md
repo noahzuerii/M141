@@ -21,7 +21,7 @@ Die Ausbildung ist in wöchentliche Lektionstage gegliedert. Jedes Verzeichnis e
 | 📘 **[Tag 5](5.Tag/README.md)** | Zugriffssystem | Autorisierung, DCL (`GRANT`/`REVOKE`), Spalten-Grants, Rollenverwaltung | **LB1 · 20 %** |
 | 📘 **[Tag 6](6.Tag/README.md)** | Server Administration | Log-Typen, Point-in-Time-Recovery (PITR), B-Tree-Indizes, `EXPLAIN` | |
 | 📘 **[Tag 7](7.Tag/README.md)** | Qualitätssicherung | Bulk-Import Tuning, Daten-Deduplizierung, `mysqlslap` Benchmarks | **LB2 · 30 %** |
-| 🚀 **[LB3](LB3/README.md)** | Backpacker Praxisarbeit | Migration MS Access $\rightarrow$ MariaDB $\rightarrow$ AWS RDS, Views, Trigger | **LB3 · 50 %** |
+| 🚀 **[LB3](LB3/README.md)** | Backpacker Praxisarbeit | Migration MS Access $\rightarrow$ MariaDB $\rightarrow$ Aiven for MySQL (Cloud), Views, Trigger | **LB3 · 50 %** |
 
 ---
 
@@ -40,7 +40,7 @@ pie title Gewichtung der Modulnote M141
 |----------------------|:----------:|---------------------------|
 | **LB1** | **20 %** | Theorie und Praxis zu Zugriffsrechten, Authentifizierung und Benutzerverwaltung (Tag 1–4).
 | **LB2** | **30 %** | Praxisprüfung zur Server-Administration, Performance-Optimierung und Backup/Recovery (Tag 1–7). 
-| **LB3** | **50 %** | Selbstständige Praxisarbeit: Vollständige Migration der Datenbank „Backpacker" auf AWS RDS, inklusive SQL-Programmierung (Views, Trigger, Stored Procedures).
+| **LB3** | **50 %** | Selbstständige Praxisarbeit: Vollständige Migration der Datenbank „Backpacker" auf eine Cloud-DBaaS-Instanz (**Aiven for MySQL**, Region Zürich – AWS RDS war für die Klasse nicht verfügbar), inklusive SQL-Programmierung (Views, Trigger, Stored Procedures).
 
 ---
 
@@ -51,7 +51,7 @@ Für die Übungen und die Praxisarbeit kommt folgender Software-Stack zum Einsat
 ### Server-Komponenten
 *   **MariaDB / MySQL Daemon (`mysqld`)**: Die relationale Core-Engine des Datenbanksystems.
 *   **XAMPP**: Lokale Entwicklungsumgebung (Apache-Webserver + MariaDB-Server).
-*   **AWS RDS (MySQL 8.0)**: Verwaltetes Cloud-RDBMS für die produktive Bereitstellung.
+*   **Aiven for MySQL 8.0**: Verwaltetes Cloud-RDBMS (DBaaS) für die produktive Bereitstellung in LB3 – gewählt anstelle von AWS RDS, da der Klasse kein AWS-Schulungs-Abo zur Verfügung stand.
 
 ### Client-Programme & Administration
 *   **MySQL Workbench**: Offizielles Administrations- und Modellierungswerkzeug.

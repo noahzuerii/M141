@@ -4,23 +4,36 @@
 -- =============================================================
 -- Beschreibung:
 --   Automatisierte Migration der Datenbank backpacker_noah_lb3
---   vom lokalen MariaDB (XAMPP) auf AWS RDS (MySQL 8.0).
+--   vom lokalen MariaDB (XAMPP) auf Aiven for MySQL 8.0
+--   (Cloud-Region: google-europe-west6 / Zürich).
+--
+-- Hinweis Cloud-Provider:
+--   Da kein AWS-Schulungs-Abo zur Verfügung stand, wurde anstelle
+--   von AWS RDS der DBaaS-Anbieter Aiven gewählt. Der Migrations-
+--   ablauf bleibt identisch; nur Endpoint, Default-Admin
+--   (avnadmin) und das CA-Zertifikat unterscheiden sich.
 --
 -- Ablauf:
---   1. Lokales Backup erstellen (Struktur + Daten)
---   2. Benutzer/Rollen-Backup erstellen (DCL)
---   3. Dump auf Cloud-Server einspielen
---   4. DCL auf Cloud-Server einspielen
---   5. Verbindung testen
+--   1. Lokales Backup erstellen (Struktur + Daten + Routinen + Trigger)
+--   2. Benutzer/Rollen-Backup (DCL)
+--   3. Dump auf Aiven einspielen (TLS 1.3 + VERIFY_CA)
+--   4. DCL auf Aiven einspielen
+--   5. Verbindung & Konsistenz testen
 --
--- Ausführung als Bash-Befehle (CMD / PowerShell) – nicht als SQL!
+-- Ausführung als Shell-Befehle (CMD / PowerShell) – nicht als SQL!
 -- MySQL-Kommentare zeigen die Shell-Befehle für die Dokumentation.
+--
+-- Variablen (im CMD vorher setzen):
+--   set AIVEN_HOST=backpacker-noah-lb3-noah-lb3.h.aivencloud.com
+--   set AIVEN_PORT=12947
+--   set AIVEN_USER=avnadmin
+--   set AIVEN_CA=C:\backup\aiven_ca.pem
 -- =============================================================
 
 -- =============================================================
 -- SCHRITT 1: Lokales Backup (lokal ausführen)
 -- =============================================================
--- Struktur + Daten als SQL-Dump:
+-- Struktur + Daten + Stored Routines + Trigger als SQL-Dump:
 --
 -- Windows CMD:
 -- mysqldump -u root -p ^
@@ -45,38 +58,40 @@
 --   --where="user IN ('ben_noah','mgmt_noah')" ^
 --   > C:\backup\backpacker_noah_lb3_users.sql
 --
--- Alternativ: 02_backpacker_dcl.sql direkt auf Cloud ausführen
--- (empfohlen, da Passwort-Hashes auf Cloud neu gesetzt werden)
+-- Empfohlen: 02_backpacker_dcl.sql direkt auf Aiven ausführen,
+-- da Passwort-Hashes auf der Cloud neu gesetzt werden (kein
+-- Klartext-Re-Import alter Hashes).
 
 -- =============================================================
--- SCHRITT 3: Dump auf AWS RDS einspielen
+-- SCHRITT 3: Dump auf Aiven einspielen
 -- =============================================================
--- CLOUD_HOST = <endpoint>.rds.amazonaws.com
--- CLOUD_PORT = 3306
--- CLOUD_USER = admin
+-- CLOUD_HOST = backpacker-noah-lb3-noah-lb3.h.aivencloud.com
+-- CLOUD_PORT = 12947
+-- CLOUD_USER = avnadmin
+-- CA-CERT    = aiven_ca.pem (aus Aiven Console > Service > "Download CA")
 --
 -- Windows CMD:
--- mysql -h <endpoint>.rds.amazonaws.com ^
---       -u admin -p ^
---       --ssl-mode=REQUIRED ^
+-- mysql -h backpacker-noah-lb3-noah-lb3.h.aivencloud.com ^
+--       -P 12947 -u avnadmin -p ^
+--       --ssl-mode=VERIFY_CA --ssl-ca=C:\backup\aiven_ca.pem ^
 --       < C:\backup\backpacker_noah_lb3_dump.sql
 --
 -- Fortschritt überwachen (grosse Dumps):
--- mysql -h <endpoint> -u admin -p < dump.sql 2>&1 | findstr /V "^$"
+-- mysql -h <endpoint> -P 12947 -u avnadmin -p < dump.sql 2>&1 | findstr /V "^$"
 
 -- =============================================================
 -- SCHRITT 4: DCL auf Cloud-Server einrichten
 -- =============================================================
--- Da AWS RDS kein SUPER-Privilege für normale User erlaubt,
--- werden Rollen und Benutzer direkt auf der Cloud erstellt.
+-- Aiven gibt dem Default-Admin avnadmin alle nötigen GRANT-Rechte
+-- (kein SUPER nötig), CREATE ROLE / SET DEFAULT ROLE sind erlaubt.
 --
--- mysql -h <endpoint>.rds.amazonaws.com -u admin -p < 02_backpacker_dcl.sql
---
--- Anpassung für AWS RDS:
--- SET DEFAULT ROLE ist in AWS RDS ggf. als admin auszuführen.
+-- mysql -h backpacker-noah-lb3-noah-lb3.h.aivencloud.com ^
+--       -P 12947 -u avnadmin -p ^
+--       --ssl-mode=VERIFY_CA --ssl-ca=C:\backup\aiven_ca.pem ^
+--       < 02_backpacker_dcl.sql
 
 -- =============================================================
--- SCHRITT 5: SQL-Verifikation nach Migration (als admin auf Cloud)
+-- SCHRITT 5: SQL-Verifikation nach Migration (als avnadmin auf Cloud)
 -- =============================================================
 
 -- Verbindung prüfen:
@@ -113,31 +128,37 @@ SELECT user, host FROM mysql.user
 WHERE user IN ('ben_noah', 'mgmt_noah');
 
 -- =============================================================
--- SCHRITT 6: Produktionssicherung (my.cnf-Konfiguration)
+-- SCHRITT 6: Produktionssicherung (my.cnf / Aiven Advanced Configuration)
 -- =============================================================
--- Folgende Parameter sollten in der AWS RDS Parametergruppe gesetzt sein:
+-- Aiven exponiert kein direktes my.cnf; die Parameter werden über
+-- die "Advanced Configuration" der Service-UI bzw. die Aiven-CLI
+-- gesetzt. Die folgenden Werte wurden für den produktiven Betrieb
+-- konfiguriert (vgl. my-aiven.cnf im Repo):
 --
--- max_connections          = 100
--- innodb_buffer_pool_size  = 128M
--- slow_query_log           = 1
--- long_query_time          = 2
--- log_bin                  = 1         -- Binary Log für Recovery
--- expire_logs_days         = 7
--- character_set_server     = utf8mb4
--- collation_server         = utf8mb4_unicode_ci
--- require_secure_transport = ON        -- SSL erzwingen
+-- mysql.max_connections          = 100
+-- mysql.innodb_buffer_pool_size  = bleibt managed (Aiven-default ~70 % RAM)
+-- mysql.slow_query_log           = 1
+-- mysql.long_query_time          = 2
+-- mysql.log_bin                  = 1         -- binlog für PITR
+-- mysql.expire_logs_days         = 7
+-- mysql.character_set_server     = utf8mb4
+-- mysql.collation_server         = utf8mb4_unicode_ci
+-- mysql.require_secure_transport = ON        -- bei Aiven nicht abschaltbar
 --
--- Sicherheitseinstellungen AWS RDS:
--- - Security Group: nur Port 3306 von bekannten IPs öffnen
--- - VPC: private Subnet bevorzugen
--- - Multi-AZ: für Produktionsbetrieb aktivieren
--- - Automated Backups: 7 Tage Retention
--- - Deletion Protection: aktivieren
+-- Sicherheitseinstellungen Aiven:
+-- - IP-Allowlist: nur TBZ-NAT + private Heim-IP
+-- - Service Integrations: log-shipping nach "M141 Logs"
+-- - Backups: automatisch (PITR, 14 Tage Retention)
+-- - Failover: synchroner Hot-Standby in derselben Region
+-- - Termination Protection: aktiviert
 
 -- =============================================================
 -- Rollback-Plan (falls Migration fehlschlägt)
 -- =============================================================
 -- 1. Cloud-Datenbank löschen: DROP DATABASE backpacker_noah_lb3;
+--    (Service selbst bleibt erhalten, Kosten laufen weiter)
 -- 2. Lokale Datenbank läuft weiterhin – keine Unterbrechung
 -- 3. Ursache im Dump identifizieren (Charset, Engine, Syntax)
 -- 4. Angepassten Dump erneut einspielen
+-- 5. Falls Service inkompatibel: 14-Tage-PITR-Snapshot via Aiven-UI
+--    auf einen "Fork" wiederherstellen und dort weiterarbeiten.

@@ -1,0 +1,71 @@
+# =============================================================
+# my.cnf – PRODUKTIVE Aiven for MySQL 8.0 Instanz
+# Service: backpacker-noah-lb3
+# Region:  google-europe-west6 (Zürich)
+# Autor:   Noah Bachmann | TBZ M141 LB3
+# =============================================================
+# Hinweis: Aiven bietet KEIN direktes File-Editing – die Werte
+#          werden über die Aiven Console > Advanced Configuration
+#          oder die Aiven-CLI gesetzt:
+#
+#   avn service update backpacker-noah-lb3 \
+#       -c mysql.character_set_server=utf8mb4 \
+#       -c mysql.slow_query_log=true \
+#       -c mysql.long_query_time=2
+#
+# Diese Datei dient als dokumentierter Snapshot der eingestellten
+# Parameter (was-warum-wert), nicht als ausführbare my.cnf.
+# =============================================================
+
+[mysqld]
+# --- Verzeichnisse (von Aiven verwaltet, hier nur zur Referenz) ---
+datadir                  = /var/lib/mysql/                   # managed
+tmpdir                   = /var/lib/mysql-tmp/               # managed
+
+# --- Netzwerk ---
+port                     = 12947                              # zufällig zugewiesen
+bind-address             = 0.0.0.0                            # über Allowlist gefiltert
+max_connections          = 100
+skip-name-resolve
+
+# --- TLS / SSL (Aiven enforced) ---
+require_secure_transport = ON                                 # nicht abschaltbar
+tls_version              = TLSv1.2,TLSv1.3
+
+# --- Zeichensatz / Locale ---
+character_set_server     = utf8mb4
+collation_server         = utf8mb4_unicode_ci
+default_time_zone        = '+01:00'
+
+# --- InnoDB (managed, Faustregel ~70 % Service-RAM) ---
+default_storage_engine   = InnoDB
+innodb_buffer_pool_size  = 805306368                          # ~768 MB (managed)
+innodb_file_per_table    = 1
+innodb_print_all_deadlocks = 1
+innodb_flush_log_at_trx_commit = 1                            # Prod: Sync
+
+# --- Logging ---
+slow_query_log           = 1
+long_query_time          = 2
+log_queries_not_using_indexes = 1
+general_log              = 0
+
+# --- Binary Log / PITR (Aiven managed) ---
+log_bin                  = ON                                 # für PITR-Backups
+binlog_format            = ROW
+expire_logs_seconds      = 604800                             # 7 Tage
+
+# --- SQL_MODE ---
+sql_mode = STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+
+# --- Sicherheits-Defaults ---
+local_infile             = 0                                  # kein lokales LOAD
+secure_file_priv         = /var/lib/mysql-files/              # managed
+
+[client]
+default-character-set    = utf8mb4
+ssl-mode                 = VERIFY_CA
+ssl-ca                   = /home/noah/.aiven/ca.pem
+host                     = backpacker-noah-lb3-noah-lb3.h.aivencloud.com
+port                     = 12947
+user                     = avnadmin

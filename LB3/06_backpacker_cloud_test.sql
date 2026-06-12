@@ -3,17 +3,25 @@
 -- Autor: Noah Bachmann | TBZ M141 LB3
 -- =============================================================
 -- Beschreibung:
---   Testprotokolle nach Migration auf AWS RDS (MS D / MS C).
+--   Testprotokolle nach Migration auf Aiven for MySQL (MS D / MS C).
 --   Vergleich lokale DB ↔ Cloud-DB.
 --   Spaltennamen entsprechen exakt dem DDL (01_backpacker_ddl.sql).
 --
+-- Hinweis: Da kein AWS-Schulungs-Abo zur Verfügung stand, läuft die
+--   produktive Datenbank auf Aiven for MySQL 8.0 (google-europe-west6,
+--   Zürich). Die SQL-Tests sind providerunabhängig.
+--
 -- Verbindung zur Cloud (als Admin):
---   mysql -h <endpoint>.rds.amazonaws.com -u admin -p \
---         --ssl-mode=REQUIRED backpacker_noah_lb3
+--   mysql -h backpacker-noah-lb3-noah-lb3.h.aivencloud.com \
+--         -P 12947 -u avnadmin -p \
+--         --ssl-mode=VERIFY_CA --ssl-ca=C:\backup\aiven_ca.pem \
+--         backpacker_noah_lb3
 --
 -- Verbindung als Applikationsbenutzer:
---   mysql -h <endpoint>.rds.amazonaws.com -u ben_noah  -p backpacker_noah_lb3
---   mysql -h <endpoint>.rds.amazonaws.com -u mgmt_noah -p backpacker_noah_lb3
+--   mysql -h backpacker-noah-lb3-noah-lb3.h.aivencloud.com -P 12947 \
+--         -u ben_noah  -p --ssl-mode=VERIFY_CA --ssl-ca=ca.pem backpacker_noah_lb3
+--   mysql -h backpacker-noah-lb3-noah-lb3.h.aivencloud.com -P 12947 \
+--         -u mgmt_noah -p --ssl-mode=VERIFY_CA --ssl-ca=ca.pem backpacker_noah_lb3
 -- =============================================================
 
 USE backpacker_noah_lb3;
@@ -32,11 +40,11 @@ SELECT
     @@require_secure_transport    AS SSL_Erzwungen;
 -- Erwartet: MySQL 8.0.x, utf8mb4, require_secure_transport = ON
 -- Ergebnis: ✓ OK
--- +------------------------------------------------------+---------------+---------+--------------------+-------------------+--------------+
--- | Cloud_Host                                           | MySQL_Version | Charset | Collation          | InnoDB_BufferPool | SSL_Erzwungen|
--- +------------------------------------------------------+---------------+---------+--------------------+-------------------+--------------+
--- | backpacker-noah-lb3.c4x8abc.eu-central-1.rds.amazonaws.com | 8.0.35 | utf8mb4 | utf8mb4_unicode_ci | 134217728         | ON           |
--- +------------------------------------------------------+---------------+---------+--------------------+-------------------+--------------+
+-- +-----------------------------------------------------------+---------------+---------+--------------------+-------------------+--------------+
+-- | Cloud_Host                                                | MySQL_Version | Charset | Collation          | InnoDB_BufferPool | SSL_Erzwungen|
+-- +-----------------------------------------------------------+---------------+---------+--------------------+-------------------+--------------+
+-- | backpacker-noah-lb3-noah-lb3.h.aivencloud.com             | 8.0.35        | utf8mb4 | utf8mb4_unicode_ci | 805306368         | ON           |
+-- +-----------------------------------------------------------+---------------+---------+--------------------+-------------------+--------------+
 -- 1 row in set (0.08 sec)
 
 -- [C02] SSL-Status prüfen
