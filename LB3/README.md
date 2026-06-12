@@ -35,8 +35,6 @@ Die gesamte Implementierung und Migration ist in sieben modular aufgebauten SQL-
 | **L** | [08_testprotokoll_lokal.md](./08_testprotokoll_lokal.md) | Vollständiges, durchnummeriertes Testprotokoll **lokal** (MS B 1.5). 41 Tests, 41/41 OK. |
 | **C** | [09_testprotokoll_cloud.md](./09_testprotokoll_cloud.md) | Vollständiges Testprotokoll **Cloud** nach Migration (MS D 3.3). 24 Tests, 24/24 OK. |
 | **A** | [10_aiven_setup.md](./10_aiven_setup.md) | Setup der Aiven-Cloud-Instanz, IP-Allowlist, SSL-CA-Pfade. |
-| **K** | [PROMPTS.md](./PROMPTS.md) | KI-Prompt-Log (Urheberbeweis gemäss LB3-Vorgaben). |
-| **D** | [DEMO.md](./DEMO.md) | Drehbuch für die 10–15-Minuten-Live-Demo vor LP. |
 | **cfg** | [my-local.cnf](./my-local.cnf), [my-aiven.cnf](./my-aiven.cnf) | Konfigurationsdateien lokal & Cloud-Parametergruppe (`my.ini`-Äquivalent). |
 
 ### Ausführungsreihenfolge (Lokale Installation)

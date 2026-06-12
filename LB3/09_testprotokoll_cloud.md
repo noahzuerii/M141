@@ -148,6 +148,6 @@ mysql -h %AIVEN_HOST% -P %AIVEN_PORT% -u mgmt_noah -p ^
 * **Datenkonsistent** – Zeilenzahlen 1 : 1 übernommen, keine Waisen, keine Klartextpasswörter.
 * **Zugriffsmatrix wirksam** – auch in der Cloud werden Spalten- und Tabellen-Grants konsequent durchgesetzt.
 * **Sicherer Betrieb** – TLS 1.3, IP-Allowlist, automatische Backups, Hot-Standby.
-* **Bereit für Live-Demo** vor LP gemäss [DEMO.md](./DEMO.md).
+* **Bereit für den produktiven Betrieb** – alle Tests grün, Sicherheit verifiziert.
 
 — *Noah Bachmann, Zürich, 2026-06-12*
